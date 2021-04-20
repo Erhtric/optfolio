@@ -1,6 +1,6 @@
 from typing import List
 import numpy as np
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
 import yfinance as yf
 import pandas as pd
 
@@ -71,7 +71,7 @@ class DataHandler:
         return f'Active ticker symbols: {self.tickerSymbols}'
 
     def plot_time_series(self, attr: str):
-        """The method plots the time series for each ticker in the already selected
+        """The method plots the time series for EACH ticker in the already selected
         chosen date interval.
 
         Args:
@@ -96,5 +96,6 @@ class DataHandler:
             ax.set_title(self.tickerSymbols[count-1])
             df[attr].plot(grid=True)
 
-            fig.tight_layout()
-            fig.savefig('./src/results/results.pdf')
+        fig.tight_layout()
+        #fig.savefig('./src/results/results.pdf')
+        plt.show()
