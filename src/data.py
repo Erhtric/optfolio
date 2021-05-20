@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import yfinance as yf
 import pandas as pd
 
-def get_history_data(symbols: list[str], start_time: str, end_time: str, period: str, save_file: bool=True) -> pd.DataFrame:
+def get_history_data(symbols: List[str], start_time: str, end_time: str, period: str, save_file: bool=True) -> pd.DataFrame:
     """The method downloads the history of data from finance.yahoo.com
     of the given symbols, for a certain interval of time, and optionally
     it could save the sudden data to file.
@@ -32,9 +32,10 @@ def get_history_data(symbols: list[str], start_time: str, end_time: str, period:
 
     # Clean the dataframe from the values in which we are not interested.
     df = df.drop(['Stock Splits'], axis=1)
+    if save_file: df.to_csv('./src/data/ASSET_DATA.csv')
     return df
 
-def get_info_data(symbols: list[str], keyword: str) -> List:
+def get_info_data(symbols: List[str], keyword: str) -> List:
     """The method get the relative info dictated with the relative keyword
         about the specific asset. See yfinance for further details or simply print
         the list of all related info by doing ticker.info.
@@ -52,7 +53,7 @@ def get_info_data(symbols: list[str], keyword: str) -> List:
 
     return values
 
-def plot_time_series(symbols: list[str], attr: str):
+def plot_time_series(symbols: List[str], asset_data: pd.DataFrame, attr: str):
         """The method plots the time series for EACH ticker in the already selected
         chosen date interval.
 
@@ -71,6 +72,7 @@ def plot_time_series(symbols: list[str], attr: str):
         fig.suptitle(attr + ' prices ($)')
         for count in range(1, n+1):
             df = pd.read_csv('./src/data/{}.csv'.format(symbols[count-1]))
+            #df = asset_data
             # Convert the Date column to the datetime type.
             df['Date'] = df['Date'].apply(pd.to_datetime)
             df.set_index('Date', inplace=True)
