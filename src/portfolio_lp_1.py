@@ -1,13 +1,21 @@
 import data
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
+# from matplotlib import pyplot as plt
 
 class Portfolio:
+    """
+    A portfolio is made up of:
+        - the assets oh which the portfolio is made, usually expressed by their tickers.
+        - the initial amount to be invested (in $)
+        - a list of weights, one for each asset considered. It represents the participation of the quotes in the portfolio.
+        - a starting date and a final date which represent the temporal window for the historical data. Moreover a default 
+            period of one day was chosen.
+    """
 
     assets = []
     asset_data = None
-    weights = [] # one weigth for each ticker, must sum up to 1 
+    weights = [] 
     initial_investement = 0
     cov = 0
 
@@ -21,9 +29,10 @@ class Portfolio:
         #assert np.sum(weights) == 1
         print(60*'*')
         print("...Starting portfolio session...")
-        self.initial_investement = initial_amount
+
+        self.initial_investment = initial_amount
         self.asset_data = data.get_history_data(symbols, start_time=start_date, end_time=end_date, period=period)
-        
+
         # Output formatting
         print("Total number of assets in the portfolio:", len(self.assets))
         print("Initial amount invested:", self.initial_investement, "$")
@@ -42,7 +51,7 @@ class Portfolio:
         """Computes the covariance for the already defined assets in the portfolio.
 
         Returns:
-            cov: the covariance matrix (a pandas DataFrame) for the n assets 
+            cov: the covariance matrix (a pandas DataFrame) for the n assets
         """
         closing_prices = self.asset_data[['Close','Ticker']]
         sym_df = pd.DataFrame()
@@ -56,14 +65,14 @@ class Portfolio:
         self.cov = (sym_df_demean.T @ sym_df_demean) / m
 
         return self.cov
-    
+
     def plot_ts_sep(self, attr):
         """Plot the data in separate plots for the given attribute"""
         data.plot_time_series(self.assets, self.asset_data, attr)
 
 
-pf = Portfolio(["GME", "AAPL", "TSLA", "AMC"], 1000, np.zeros(4), "2019-01-01", "2020-01-01")
+# pf = Portfolio(["GME", "AAPL", "TSLA", "AMC"], 1000, np.zeros(4), "2019-01-01", "2020-01-01")
 #df = pf.asset_data[["Close", "Ticker"]]
-pf.plot_ts_sep('Close')
+# pf.plot_ts_sep('Close')
 #print(df)
-pf.covariance()
+# pf.covariance()
