@@ -25,7 +25,7 @@ def get_history_data(symbols: List[str], start_time: str, end_time: str, period:
         tickerData = yf.Ticker(ticker)
         tickerDf = tickerData.history(start=start_time, end=end_time, period=period)
         tickerDf['Ticker'] = ticker
-        if save_file: tickerDf.to_csv('./src/data/{}.csv'.format(ticker))
+        if save_file: tickerDf.to_csv('src\data{}.csv'.format(ticker))
         frames.append(tickerDf)
 
     df = pd.concat(frames)
