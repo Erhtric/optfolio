@@ -22,14 +22,14 @@ def plot_time_series(symbols: List[str], attr: str):
     for count in range(1, n_symbols+1):
         ticker = symbols[count-1]
         date = DATA['formatted_date'][DATA['ticker']==ticker]
-        close = DATA[attr][DATA['ticker']==ticker]
+        values = DATA[attr][DATA['ticker']==ticker]
         ax = fig.add_subplot(rows, columns, count)
         ax.set_title(symbols[count-1])
         ax.set_xticks([])
 
         # Get the next color from the cycler
         c = next(colors)["color"]
-        plt.plot(date, close, color=c)
+        plt.plot(date, values, color=c)
         plt.grid(True)
 
     fig.tight_layout()
