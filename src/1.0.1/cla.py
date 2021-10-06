@@ -1,3 +1,4 @@
+from numpy.core.fromnumeric import argsort
 import data
 import pandas as pd
 import numpy as np
@@ -18,16 +19,12 @@ class Portfolio:
         self.tickers = tickers
         self.market_data = self.get_market_data(start_date, end_date)       # stock data formatted as a Pandas DataFrame
 
-        self.mean = self.compute_individual_exp()
+        self.mean = self.compute_individual_mean()
         self.covariance = self.compute_covariance_matrix()
         self.lb = lower
         self.ub = upper
 
-        self.weights = np.zeros()
-
-        # For the Constrained Optimization problem
-        self.lambdas = []
-        self.etas = []
+        self.weights = np.zeros(len(tickers))
 
     def get_market_data(self, start_date, end_date):
         data.get_history_data(self.tickers, start_date, end_date)
@@ -61,6 +58,17 @@ class Portfolio:
             COV.insert(count, ticker, close_prices, allow_duplicates=True)
         return COV.cov()
 
+    def compute_correlation_matrix(self):
+        """
+        Compute the correlation matrix between the assets
+        """
+        # Combine the stock data in a single matrix where each column has the prices for the individual asset
+        COV = pd.DataFrame()
+        for count, ticker in enumerate(self.tickers):
+            close_prices = self.market_data['close'][self.market_data['ticker']==ticker]
+            COV.insert(count, ticker, close_prices, allow_duplicates=True)
+        return COV.corr()
+
     def compute_portfolio_expected_return(self):
         return self.mean @ self.weights
 
@@ -70,16 +78,32 @@ class Portfolio:
     def compute_portfolio_std(self):
         return np.sqrt(self.compute_portfolio_variance())
 
-pf = Portfolio(['TSLA', 'GME', "AAPL"], [], [], '2014-01-01', '2016-12-31')
-print(pf.covariance)
-
 class CLA(Portfolio):
 
-    def __init__(self) -> None:
+    def __init__(self, tickers, lower, upper, start_date, end_date) -> None:
         """
-        Initializes a CLA instance 
+        Initializes a CLA instance
         """
-        super()
+        super().__init__(tickers, lower, upper, start_date, end_date)
+
+        # For the Constrained Optimization problem
+        self.lambdas = []
+        self.etas = []
+
 
     def solve(self):
+        """
+        Solving method for the COP. Such problem in our context consists in
+        a optimization procedure where we want to optimize an utility function.
+        For example, if we want the maximum expected return we would write:
+                max     expected return on the portfolio \\
+                where   risk_tolerance -> infinity \\
+                s.t.    weights.T @ 1 = weights \\
+                        A @ weights = b \\
+                        weigths >= lb \\
+                        weigths <= ub
+        Such problems could be solved by a general linear programming algorithm.
+        """
         pass
+
+cla_pf = CLA(['TSLA', 'GME', "AAPL"], [], [], '2014-01-01', '2016-12-31')

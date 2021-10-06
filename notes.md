@@ -142,16 +142,16 @@ lb = [1
 
 ## 2.2 Parametric General Asset Allocation Problem
 
-The parametric general asset allocation problem has the form:
+The parametric general asset allocation problem has the form, for all positive values of $rt$:
 $$
 \begin{aligned}
         \max_X \quad & u = \mu - \dfrac{\sigma^2}{rt}\\
         \textrm{s.t.} \quad & X^Tr=\mu\\
         & X^T\Sigma X=\sigma^2\\
         & X^T\mathbf{1} = W \\
+        & Ax = b \\
         & X \geq lb \\
         & X \leq ub \\
-        & \forall rt >0
 \end{aligned}
 $$
 The solution to the parametric version will be a matrix of portfolios rather than a single portfolio, by varying the values of $rt$. 
@@ -169,7 +169,7 @@ To illustrate, consider a portfolio where the assets are cash, bonds and stocks,
         7.4000
        15.4000
 
-    covariance =
+    correlations =
         1.0000    0.4000    0.1500
         0.4000    1.0000    0.3500
         0.1500    0.3500    1.0000
@@ -190,3 +190,173 @@ ub =
 ```
 
 Then we have to find all the portfolios which are efficient by maximizing the utility for every non-negative value of the risk tolerance.
+
+
+### 2.2.1 Maximum Expected Return
+
+Modern portfolio theory assumes that for a given level of risk, a rational investor wants the maximal return, and for a given level of expected return, the investor wants the minimal risk. Here, we are considering the case when the investor decides to maximize expected return by disregarding risk:
+$$
+\begin{aligned}
+        \max \quad & \mu\\
+        \textrm{where} \quad & rt \rightarrow \infty\\
+        \textrm{s.t.} \quad & X^Tr=\mu\\
+            & X^T\mathbf{1} = W \\
+                    & Ax = b \\
+
+            & X \geq lb \\
+            & X \leq ub \\
+\end{aligned}
+$$
+This is a **linear programming problem**, since all the constraints are linear and the objective function is linear.  Obviously it is the same as minimizing the negative expected valued of the portfolio. This could be solved by using general linear programming algorithms.
+
+## 2.3 Optimal Portfolio with Fixed Risk Tolerance
+
+Suppose now we have to found an optimal portfolio with a fixed risk tolerance of *$45$*. To find an answer we might guess that the status of each variable in such a case would be the same as in the solution for $rt = \infty$ . Assume that this is true. The solution equation for the case in which no bounds are binding, where $y \in \R^{n+1}$ , whose last variable of it is a $tmup$ unknown value, and $D \in \R^{n+1 \times n+1}$ element matrix that includes the information about asset covariances and the constraint that the sum of the holding equals a constant:
+$$
+Dy = k +rt*f
+$$
+where $k$ is the vector that indicates the full-investment constrain on row $n+1$, and $f$ is a vector that contains the asset expected return in the first $n$ rows and zero for the $n+1$ one. Then
+
+| 2*C(1,1) | 2*C(1,2) | 2*C(1,3) | 1    |      | x(1) |      | 0    |      |      | e(1) |
+| -------- | -------- | -------- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| 2*C(2,1) | 2*C(2,2) | 2*C(2,3) | 1    | *    | x(2) | =    | 0    | +    | rt   | e(2) |
+| 2*C(3,1) | 2*C(3,2) | 2*C(3,3) | 1    |      | x(3) |      | 0    |      |      | e(3) |
+| 1        | 1        | 1        | 0    |      | tmup |      | 1    |      |      | 0    |
+
+The first equation is derived by setting the derivative of the Lagrangian function with respect to the first variable equal to zero. The second equation is derived by doing so with respect to the second variable. And so on, for the first *n* equations. These *first-order condition* equations remain appropriate for the variables that are in the solution, for their bounds are not binding and hence could have been omitted entirely. Note, however, that the corresponding equations will not generally hold for variables that are down or up. On the other hand, it is easy to write an equation for any such variable, since it must be at the corresponding bound. In the case at hand we need to replace the first equation with one that states:
+$$
+X_1 = lb_1
+$$
+ and the third:
+$$
+X_3 = ub_3
+$$
+This is easily done by modifying $D$, $k$ and $f$ to give:
+$$
+DDy = kk + rt*ff
+$$
+where the new matrices and vectors are:
+
+| 1        | 0        | 0        | 0    |      | x(1) |      | 0.20 |      |      | 0    |
+| -------- | -------- | -------- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| 2*C(2,1) | 2*C(2,2) | 2*C(2,3) | 1    | *    | x(2) | =    | 0    | +    | rt   | e(2) |
+| 0        | 0        | 1        | 0    |      | x(3) |      | 0.50 |      |      | 0    |
+| 1        | 1        | 1        | 0    |      | tmup |      | 1    |      |      | 0    |
+
+We can now solve the system of equations:
+$$
+y = DD^{-1}kk + rt*DD^{-1}ff
+$$
+The optimal portfolio is the same for someone with a risk tolerance of $45 $ as for someone who doesn't care at all about risk!
+
+## 2.4 The Kuhn-Tucker Conditions
+
+The goal is to maximize portfolio utility, stated in expected return equivalent terms:
+$$
+u = \mu - \dfrac{\sigma^2}{rt}
+$$
+This can be also stated in a variance equivalent terms:
+$$
+u_v = rt\mu - \sigma^2
+$$
+And we have to meet one or more linear equality constraints:
+$$
+Ax = b
+$$
+and in order to obtain a feasible solution we require that: 
+$$
+b - Ax = \mathbf{0}
+$$
+We form now the Lagrangian associated, where where $A_i = row(A, i)$ :
+$$
+\mathcal{L} = rt\mu - \sigma^2 + \lambda(b_1-A_{1}X) + \eta(b_2-A_{2}X)
+$$
+Then we have to compute the derivatives with respect to the asset holdings and then setting these to zero to satisfy the first-order conditions:
+$$
+\frac{d\mathcal{L}}{dX_i} = rt *\mu_i - 2\Sigma_{i}X - \lambda A_{1i} - \eta A_{2i} \quad \textrm{with}\quad i \in \{1,\dots,n\}
+$$
+
+$$
+\frac{d\mathcal{L}}{dX_i} = 0 \Rightarrow 2\Sigma_{i}X = 0 + rt*\mu_i
+$$
+
+The derivative with respect to the Lagrange multipliers are:
+$$
+\begin{align}
+	& \quad \frac{d\mathcal{L}}{d\lambda} = b_1 - A_{1}X \\
+	& \quad \frac{d\mathcal{L}}{d\eta} = b_2 - A_{2}X
+\end{align}
+$$
+and setting these to zero give us the original constraint equations:
+$$
+\begin{align}
+	& \quad b_1 - A_{1}X = 0 \Rightarrow A_1X = b_1\\
+	& \quad b_2 - A_{2}X = 0 \Rightarrow A_2X = b_2
+\end{align}
+$$
+We have now $3+2$ equations in $5$ unknows. this could be written as before as:
+$$
+D*y = k + rt*f
+$$
+where
+$$
+D = \begin{bmatrix}
+2\Sigma & A^T \\
+A & \mathbf{0}^{m \times m} 
+\end{bmatrix}
+$$
+
+$$
+k = \begin{bmatrix}
+\mathbf{0}^{n}  \\
+b  
+\end{bmatrix}
+$$
+
+$$
+f = \begin{bmatrix}
+\mu \\
+\mathbf{0}^{m} 
+\end{bmatrix}
+$$
+
+In CLA the goal is to maximize a Lagrangian function:
+$$
+\mathcal{L} = rt*\mu - \sigma^2 + \lambda(b_1 - A_{1}X)
+$$
+The partial derivative of $\mathcal{L}$ with respect to $X_i$ is
+$$
+\frac{d\mathcal{L}}{dX_i} = rt *\mu_i - 2\Sigma_{ij}
+$$
+Since we wish to maximize $\mathcal{L}$, the goal is to get to the top of the hill where the height is given by the value of the function and the coordinates are given by $X$ plus $\lambda$, $\eta$. 
+
+Consider $\dfrac{d\mathcal{L}}{dX_i}$ in the $X_i$ direction when at the optima point. If $X_i$ is a **in-variable**, namely if $lb_i \leq X_i \leq ub_i$, the slope must zero or else we would not in fact be at the top of the feasible hill. Thus we have:
+$$
+\frac{d\mathcal{L}}{dX_i} = 0
+$$
+for all in-variables. Now consider $\dfrac{d\mathcal{L}}{dX_i}$ at the optimal point for a **down-variable**, namely if   $lb_i = X_i$. If this were positive, we could not be at the top of feasible hill since an increase in $X_i$ would improve the solution. However, it could be negative, indicating that a further decrease would lead to a higher value of $\mathcal{L}$, but this increase is not allowed, thus:
+$$
+\frac{d\mathcal{L}}{dX_i} \leq 0
+$$
+for all down-variables. It must be the case that the derivative is zero or positive for all **up-variables**, namely if $X_i = ub_i$. If such a slope were negative, it would pay to decrease the value of the variable, since by doing so one could reach a higher position, then:
+$$
+\frac{d\mathcal{L}}{dX_i} \geq 0
+$$
+for all up-variables. This are the *Kuhn-Tucker conditions* to be met. 
+
+### 2.4.1 Computing derivatives wrt to Bounded Variables
+
+As before the Lagrangian:
+$$
+\mathcal{L} = rt*\mu - \sigma^2 + \lambda(b_1 - A_{1}X)
+$$
+the derivative is:
+$$
+\frac{d\mathcal{L}}{dX} = rt*\mu - 2\Sigma X - \lambda = rt*f - D*y
+$$
+where the first $n$ elements of are the derivatives of the Lagrangian with respect to the asset holdings. Now we have to verify that the Kuhn-Tucker conditions have been met, namely that:
+
+1. for a down-variable a negative value,
+2. for a in-variable a zero,
+3. for a up-variable a positive value.v
+
