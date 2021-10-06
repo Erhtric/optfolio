@@ -28,7 +28,7 @@ The portfolio optimization problem can be specified as a [**constrained utility-
 The optimization process takes place in two stages:
 
 1. optimizing weights of asset classes to hold, i.e., choosing the proportions placed in equities versus bonds.
-2. optimizing weights of assets within the same asset class, i.e., choosing the proportions of the stock sub-portfolio placed in stocks X, Y, Z. 
+2. optimizing weights of assets within the same asset class, i.e., choosing the proportions of the stock sub-portfolio placed in stocks x, Y, Z. 
 
 Investors are exposed to two types of risk: *unsystematic risk* and *systematic risk*. Unsystematic risk is an asset’s intrinsic risk which can be diversified away by owning a large number of assets. These risks do not present enough information about the overall risk of the entire portfolio. Systematic risk, or the portfolio risk, is the risk generally associated with the market which cannot be eliminated. 
 
@@ -42,10 +42,10 @@ Having different classes in a Portfolio provides some diversification. Using thi
 >
 > To see two-fund separation in a context in which no risk-free asset is available, where:
 >
-> - $\sigma^2$ is the portfolio's variance, defined as $\sigma^2 = X^T\Sigma X$ where $\Sigma$ is a positive definite covariance matrix of the individual assets returns.
+> - $\sigma^2$ is the portfolio's variance, defined as $\sigma^2 = x^T\Sigma x$ where $\Sigma$ is a positive definite covariance matrix of the individual assets returns.
 > - $\mu$ is the expected return on the portfolio,
 > - $r$ is a vector of expected returns on the available assets,
-> - $X$ is a vector of amounts to be placed in the assets,
+> - $x$ is a vector of amounts to be placed in the assets,
 > - $W$ is the amount of wealth to be allocated in the portfolio.
 >
 > The problem of minimizing the portfolio return variance subject to a given level of expected portfolio return can be stated as
@@ -60,7 +60,7 @@ Having different classes in a Portfolio provides some diversification. Using thi
 > $$
 > \mathcal{L} = X^T\Sigma X + 2\lambda (\mu - X^Tr)+2\eta (W - X^T \mathbf{1})
 > $$
-> This can be solved for the optimal vector $X$ of asset quantities by equating to zero the derivatives with respect to $X$, $\lambda$ and $\eta$. The result is 
+> This can be solved for the optimal vector $x$ of asset quantities by equating to zero the derivatives with respect to $x$, $\lambda$ and $\eta$. The result is 
 > $$
 > X^* = \alpha W + \beta \mu
 > $$
@@ -146,12 +146,12 @@ The parametric general asset allocation problem has the form, for all positive v
 $$
 \begin{aligned}
         \max_X \quad & u = \mu - \dfrac{\sigma^2}{rt}\\
-        \textrm{s.t.} \quad & X^Tr=\mu\\
-        & X^T\Sigma X=\sigma^2\\
-        & X^T\mathbf{1} = W \\
+        \textrm{where} \quad & x^T\Sigma x=\sigma^2\\
+        & x^Tr=\mu \\
+        \textrm{s.t.} \quad & x^T\mathbf{1} = W \\
         & Ax = b \\
-        & X \geq lb \\
-        & X \leq ub \\
+        & x \geq lb \\
+        & x \leq ub \\
 \end{aligned}
 $$
 The solution to the parametric version will be a matrix of portfolios rather than a single portfolio, by varying the values of $rt$. 
@@ -328,7 +328,7 @@ The partial derivative of $\mathcal{L}$ with respect to $X_i$ is
 $$
 \frac{d\mathcal{L}}{dX_i} = rt *\mu_i - 2\Sigma_{ij}
 $$
-Since we wish to maximize $\mathcal{L}$, the goal is to get to the top of the hill where the height is given by the value of the function and the coordinates are given by $X$ plus $\lambda$, $\eta$. 
+Since we wish to maximize $\mathcal{L}$, the goal is to get to the top of the hill where the height is given by the value of the function and the coordinates are given by $x$ plus $\lambda$, $\eta$. 
 
 Consider $\dfrac{d\mathcal{L}}{dX_i}$ in the $X_i$ direction when at the optima point. If $X_i$ is a **in-variable**, namely if $lb_i \leq X_i \leq ub_i$, the slope must zero or else we would not in fact be at the top of the feasible hill. Thus we have:
 $$

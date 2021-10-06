@@ -1,4 +1,3 @@
-from numpy.core.fromnumeric import argsort
 import data
 import pandas as pd
 import numpy as np
@@ -105,5 +104,3 @@ class CLA(Portfolio):
         Such problems could be solved by a general linear programming algorithm.
         """
         pass
-
-cla_pf = CLA(['TSLA', 'GME', "AAPL"], [], [], '2014-01-01', '2016-12-31')
