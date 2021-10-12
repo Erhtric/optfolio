@@ -104,3 +104,6 @@ class CLA(Portfolio):
         Such problems could be solved by a general linear programming algorithm.
         """
         pass
+
+    def to_standard_form():
+        pass
