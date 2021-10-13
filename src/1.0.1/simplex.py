@@ -11,10 +11,6 @@ class Simplex:
         7. identify optima values
     """
 
-    feasible = None
-    variables = None
-    obj_f = None
-
     def __init__(self, c, A, b):
         """
         Initializes a Simplex session in the standard form
@@ -34,16 +30,38 @@ class Simplex:
     def create_tableau(self):
         """
         Create the tableau given the actual values of c, A and b
-        """
-        xb = np.array([np.concatenate([eq, bb]) for eq, bb in zip(self.A, self.b.T)])
-        z = np.concatenate((self.c, [0])).reshape((xb.shape[1],1))
-        return np.concatenate((xb, z.T), axis=0)
 
-    def is_optimal(self, tableau):
+        tableau = [ A b
+                           c 0 ]
+        """
+        Ab = np.array([np.concatenate([eq, bb]) for eq, bb in zip(self.A, self.b.T)])
+        obj = np.concatenate((self.c, [0])).reshape((Ab.shape[1],1))
+        return np.concatenate((Ab, obj.T), axis=0)
+
+    def is_not_optimal(self, tableau):
+        """Checks if the current tableau provides a not ideal solution,
+        namely the fact if there exists variables that needs to be lowered
+
+        Args:
+            tableau: bi-dimensional array representing a tableau
+        """
+        obj = tableau[-1]
+        return np.any([obj[i] > 0 for i in range(len(obj))])
+
+    def compute_pivot_position(self):
+        pass
+
+    def apply_step(self):
+        pass
+
+    def get_solution(self):
         pass
 
     def simplex(self):
         tableau = self.create_tableau()
 
-        while is_optimal(tableau):
-            pass
+        while is_not_optimal(tableau):
+            position = compute_pivot_position(tableau)
+            tableau = apply_step(tableau, position)
+
+        solution = get_solution(tableau)
