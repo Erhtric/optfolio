@@ -15,6 +15,7 @@ class Simplex:
         """
         Initializes a Simplex session in the standard form
             max c.T @ X s.t. A @ X = b
+        where we can identifiy the relative objective function to be maximized and the constraints associated
         """
         self.c = c
         self.A = A
@@ -34,33 +35,56 @@ class Simplex:
         tableau = [ A b
                            c 0 ]
         """
-        Ab = np.array([np.concatenate([eq, bb]) for eq, bb in zip(self.A, self.b.T)])
-        obj = np.concatenate((self.c, [0])).reshape((Ab.shape[1],1))
-        return np.concatenate((Ab, obj.T), axis=0)
+        A_b = np.array([np.concatenate([eq, bb]) for eq, bb in zip(self.A, self.b.T)])
+        obj = np.concatenate((self.c, [0])).reshape((A_b.shape[1],1))
+        return np.concatenate((A_b, obj.T), axis=0)
 
-    def is_not_optimal(self, tableau):
-        """Checks if the current tableau provides a not ideal solution,
+    def next_iteration(self, tableau):
+        """
+        Checks if the current tableau provides a not ideal solution,
         namely the fact if there exists variables that needs to be lowered
 
         Args:
             tableau: bi-dimensional array representing a tableau
         """
         obj = tableau[-1]
-        return np.any([obj[i] > 0 for i in range(len(obj))])
+        # np.any(val > 0 for val in obj[:-1])
+        # TODO
+        return np.any([obj[i] >= 0 for i in range(len(obj)-1)])
 
-    def compute_pivot_position(self):
+    def is_pivoting_right(self, tableau):
+        """
+        Checks if the tableau's furthest right column has negative values, thus it needs pivoting
+        """
+        right = tableau[:-1, -1]        # exclude the last value
+        flag = True if np.min(right) < 0 else False
+        return flag
+
+    def is_pivoting_bottom(self, tableau):
+        """
+        Checks if the tableau's bottom row has negative values, thus it needs pivoting
+        """
+        bottom = tableau[-1, :-1]
+        flag = True if np.min(bottom) < 0 else False
+        return flag
+
+    def compute_pivot_position(self, tableau):
+        """
+        This function detemrines where a pivot element is located
+        """
+        obj = tableau[-1]
+
+
+    def apply_step(self, tableau, position):
         pass
 
-    def apply_step(self):
-        pass
-
-    def get_solution(self):
+    def get_solution(self, tableau):
         pass
 
     def simplex(self):
         tableau = self.create_tableau()
 
-        while is_not_optimal(tableau):
+        while next(tableau):
             position = compute_pivot_position(tableau)
             tableau = apply_step(tableau, position)
 
