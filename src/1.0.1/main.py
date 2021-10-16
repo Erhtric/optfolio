@@ -22,4 +22,4 @@ if __name__ == "__main__":
     #print(cla_pf)
     handler = simplex.Simplex(c, A, b)
     tableau = handler.create_tableau()
-    print(handler.is_not_optimal(tableau))
+    print(handler.is_pivoting_right(tableau))

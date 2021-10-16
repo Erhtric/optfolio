@@ -21,13 +21,6 @@ class Simplex:
         self.A = A
         self.b = b
 
-    def initialize_matrix(self):
-        """
-        Form the structured matrix containing all the coefficients, the slack variables,
-        and the values associated
-        """
-        pass
-
     def create_tableau(self):
         """
         Create the tableau given the actual values of c, A and b
@@ -49,31 +42,68 @@ class Simplex:
         """
         obj = tableau[-1]
         # np.any(val > 0 for val in obj[:-1])
-        # TODO
+        #TODO
         return np.any([obj[i] >= 0 for i in range(len(obj)-1)])
 
     def is_pivoting_right(self, tableau):
         """
         Checks if the tableau's furthest right column has negative values, thus it needs pivoting
         """
-        right = tableau[:-1, -1]        # exclude the last value
-        flag = True if np.min(right) < 0 else False
-        return flag
+        column = tableau[:-1, -1]        # exclude the last value
+        return np.min(column) <= 0
 
     def is_pivoting_bottom(self, tableau):
         """
         Checks if the tableau's bottom row has negative values, thus it needs pivoting
         """
-        bottom = tableau[-1, :-1]
-        flag = True if np.min(bottom) < 0 else False
-        return flag
+        row = tableau[-1, :-1]          # exclude the last value
+        return np.min(row) <= 0
+
+    def compute_neg_position_right(self, tableau):
+        """
+        This function determines where a pivot element is located in the furthest right column
+        """
+        col = tableau[:-1, -1]
+        res = np.argmin(col, axis=1) if np.min(col) <= 0 else None
+        return res
+
+    def compute_neg_position_bottom(self, tableau):
+        """
+        This function determines where a pivot element is located in the bottom row, obj
+        """
+        row = tableau[-1, :-1]
+        res = np.argmin(row, axis=1) if np.min(row) <= 0 else None
+        return res
+
+    def compute_pivot_position_right(self, tableau):
+        #TODO
+        acc = []
+        neg = self.compute_neg_position_right(tableau)
+        row = tableau[neg, :-1]
+        idx_min = np.argmin(row)
+        col = tableau[:-1, idx_min]
+        b_col = tableau[:-1, -1]
+
+        for el, b in zip(col, b_col):
+            if b / el > 0:
+                acc += b / el
+            else:
+                acc += np.inf
+
+        idx = acc.index(np.min(acc))
+        return idx, idx_min
 
     def compute_pivot_position(self, tableau):
-        """
-        This function detemrines where a pivot element is located
-        """
-        obj = tableau[-1]
-
+        if self.is_pivoting_bottom(tableau):
+            acc = []
+            neg = self.compute_neg_position_bottom(tableau)
+            for el, b in zip():
+                if b / el > 0:
+                    acc += b / el
+                else:
+                    acc += np.inf
+            idx = acc.index(np.min(acc))
+            return idx, neg
 
     def apply_step(self, tableau, position):
         pass
