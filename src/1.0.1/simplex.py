@@ -58,21 +58,26 @@ class Simplex:
         If a solution is non optimal, then one or more terms in the last row of the tableau
         are negative, this is done by taking the minimum value among those values.
         """
-        if not self.is_optimal():
-            return None
         z = self.tableau[-1]
-        return np.argmin(z, axis=1) if np.min(z) < 0 else None
+        return np.argmin(z, axis=0) if np.min(z) < 0 else None
 
     def get_pivot_row_position(self):
         """This method computes the row index for the pivot in the tableau.
         If a solution is non optimal
         """
         col_idx = self.get_pivot_col_position()
-        b = self.tableau[:-1, -1]
-        b = b / self.tableau[:-1, col_idx]
-        return np.argmin(b, axis=1) if np.min(b) >= 0 else None
+        A = self.tableau[:-1, :]
+        temp = []
+        for eq in A:
+            target = eq[col_idx]
+            b = eq[-1]
+            # this last operation is delicate: since we have to divide by the elements
+            # in the coefficient matrix it is important to identify the elements which are
+            # equal to zero, in addition to the one which are not interesting for the algorithm
+            # which are the negative ones (tagged as infinite)
+            temp.append(np.inf if target <= 0 else b / target)
 
-
+        return np.argmin(temp)
 
 
 
