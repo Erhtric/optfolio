@@ -21,5 +21,7 @@ if __name__ == "__main__":
     #cla_pf = cla.CLA(['TSLA', 'GME', "AAPL"], [], [], '2014-01-01', '2016-12-31')
     #print(cla_pf)
     handler = simplex.Simplex(c, A, b)
-    tableau = handler.create_tableau()
-    print(handler.is_pivoting_right(tableau))
+    handler.create_tableau()
+    tableau = handler.tableau
+    # print(tableau)
+    print(handler.is_optimal())

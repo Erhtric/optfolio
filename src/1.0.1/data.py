@@ -1,6 +1,5 @@
 from typing import List
 import pandas as pd
-import numpy as np
 from yahoofinancials import YahooFinancials
 
 def get_history_data(tickers:List[str], start_date:str, end_date:str):
