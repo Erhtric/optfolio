@@ -45,7 +45,7 @@ class Simplex:
         z = np.concatenate((-self.of_params, [0])).reshape((Ab.shape[1],1))        # the objective function should be correctly negated
         self.tableau = np.concatenate((Ab, z.T), axis = 0)
 
-    def is_optimal(self):
+    def __is_optimal(self):
         """A solution is optimal if in every term in the objective function is non-negative.
         This method perform a simple check on the last row of the tableau if there an element
         which is < 0, and if it this is true it returns false.
@@ -53,7 +53,13 @@ class Simplex:
         z = self.tableau[-1, :-1]
         return all(val >= 0 for val in z)
 
-    def get_pivot_col_position(self):
+    def __is_basic(self, idx):
+        """Checks if the column at index idx is a unit-column, then the variable associated
+        is a basic variable. If it is not the case the variable it is a non-basic one.
+        """
+        return np.sum(self.tableau[:, idx]) == 1
+
+    def __compute_pivot_col_position(self):
         """This method simply computes the column index for the pivot in the tableau.
         If a solution is non optimal, then one or more terms in the last row of the tableau
         are negative, this is done by taking the minimum value among those values.
@@ -61,17 +67,19 @@ class Simplex:
         z = self.tableau[-1]
         return np.argmin(z, axis=0) if np.min(z) < 0 else None
 
-    def get_pivot_row_position(self):
+    def __compute_pivot_row_position(self):
         """This method computes the row index for the pivot in the tableau.
-        If a solution is non optimal
+        If a solution is non optimal, and given the pivoting column the index for the
+        row will be the minimum value obtained as the result from dividing the corresponding
+        constant by the target element indicized by the row pivoting index.
         """
-        col_idx = self.get_pivot_col_position()
+        col_idx = self.__compute_pivot_col_position()
         A = self.tableau[:-1, :]
         temp = []
-        for eq in A:
-            target = eq[col_idx]
-            b = eq[-1]
-            # this last operation is delicate: since we have to divide by the elements
+        for row in A:
+            target = row[col_idx]
+            b = row[-1]
+            # this last operation is crucial: since we have to divide by the elements
             # in the coefficient matrix it is important to identify the elements which are
             # equal to zero, in addition to the one which are not interesting for the algorithm
             # which are the negative ones (tagged as infinite)
@@ -79,130 +87,31 @@ class Simplex:
 
         return np.argmin(temp)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # def is_pivoting_right(self, tableau):
-    #     """
-    #     Checks if the tableau's furthest right column has negative values, thus it needs pivoting
-    #     """
-    #     column = tableau[:-1, -1]        # exclude the last value
-    #     return np.min(column) <= 0
-
-    # def is_pivoting_bottom(self, tableau):
-    #     """
-    #     Checks if the tableau's bottom row has negative values, thus it needs pivoting
-    #     """
-    #     row = tableau[-1, :-1]          # exclude the last value
-    #     return np.min(row) <= 0
-
-    # def compute_neg_position_right(self, tableau):
-    #     """
-    #     This function determines where a pivot element is located in the furthest right column
-    #     """
-    #     col = tableau[:-1, -1]
-    #     res = np.argmin(col, axis=1) if np.min(col) <= 0 else None
-    #     return res
-
-    # def compute_neg_position_bottom(self, tableau):
-    #     """
-    #     This function determines where a pivot element is located in the bottom row, obj
-    #     """
-    #     row = tableau[-1, :-1]
-    #     res = np.argmin(row, axis=1) if np.min(row) <= 0 else None
-    #     return res
-
-    # def compute_pivot_position_right(self, tableau):
-    #     #TODO
-    #     acc = []
-    #     neg = self.compute_neg_position_right(tableau)
-    #     row = tableau[neg, :-1]
-    #     idx_min = np.argmin(row)
-    #     col = tableau[:-1, idx_min]
-    #     b_col = tableau[:-1, -1]
-
-    #     for el, b in zip(col, b_col):
-    #         if b / el > 0:
-    #             acc += b / el
-    #         else:
-    #             acc += np.inf
-
-    #     idx = acc.index(np.min(acc))
-    #     return idx, idx_min
-
-    # def compute_pivot_position(self, tableau):
-    #     if self.is_pivoting_bottom(tableau):
-    #         acc = []
-    #         neg = self.compute_neg_position_bottom(tableau)
-    #         for el, b in zip():
-    #             if b / el > 0:
-    #                 acc += b / el
-    #             else:
-    #                 acc += np.inf
-    #         idx = acc.index(np.min(acc))
-    #         return idx, neg
-
-    # def apply_step(self, tableau, position):
-    #     pass
-
-    # def get_solution(self, tableau):
-    #     pass
-
-    # def simplex(self):
-    #     tableau = self.create_tableau()
-
-    #     while next(tableau):
-    #         position = compute_pivot_position(tableau)
-    #         tableau = apply_step(tableau, position)
-
-    #     solution = get_solution(tableau)
+    def get_pivot_position(self):
+        """Computes the pivot position for the current tableau.
+        """
+        return self.__compute_pivot_row_position(), self.__compute_pivot_col_position()
+
+    def sub_pivoting_1(self, row_idx, col_idx):
+        """Part 1 of the pivot-changing part: the goal of this
+        method is to set the pivot to 1 by multiplying the corresponding row by a certain factor"""
+        pivot = self.tableau[row_idx, col_idx]
+        self.tableau[row_idx, :] = self.tableau[row_idx, :] / pivot
+
+    def sub_pivoting_2(self, row_idx, col_idx):
+        """Part 2 of the pivot-changing part: the goal of this
+        method is to set the terms in the colum, apart from the pivot to 0"""
+        for i in range(self.tableau.shape[0]):
+            # The row with the pivot must be avoided
+            if i != row_idx:
+                row = self.tableau[i, :]
+                multiplier = self.tableau[row_idx, :] * self.tableau[i, col_idx]
+                row = row - multiplier
+
+    def apply_pivoting(self):
+        """[summary]
+        """
+        row, col = self.get_pivot_position()
+
+        self.sub_pivoting_1(row, col)
+        self.sub_pivoting_2(row, col)

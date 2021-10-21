@@ -1,6 +1,6 @@
 import numpy as np
-import cla
-import plot
+# import cla
+# import plot
 import simplex
 
 if __name__ == "__main__":
@@ -22,6 +22,4 @@ if __name__ == "__main__":
     handler = simplex.Simplex(c, A, b)
     handler.create_tableau()
     tableau = handler.tableau
-    # print(tableau)
-    print(handler.get_pivot_col_position())
-    print(handler.get_pivot_row_position())
+    handler.sub_pivoting_1(1,1)
