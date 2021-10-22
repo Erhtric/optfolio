@@ -2,6 +2,7 @@
 THIS FILE CONTAINS THE METHODS FOR THE SIMPLEX ALGORITHM EXECUTION.
 """
 import numpy as np
+from numpy.lib.function_base import extract
 class Simplex:
     """
     This class includes the Simplex algorithm and the method associated. As it is, it can
@@ -31,7 +32,9 @@ class Simplex:
         # self.slack_vars = np.zeros(self.constants.shape[0])
 
         # Array of solutions
-        self.solutions = np.zeros(self.of_params.shape[0])
+        self.solutions = []
+        self.n_vars = np.count_nonzero(self.of_params)      # since the tableau is ordered from left to right we need only the number of original variables in the problem
+
         # USED FOR INTERNAL USE: it is the internal tableau built with the relative method
         self.tableau = []
 
@@ -53,7 +56,7 @@ class Simplex:
     def __is_optimal(self):
         """A solution is optimal if in every term in the objective function is non-negative.
         This method perform a simple check on the last row of the tableau if there an element
-        which is < 0, and if it this is true it returns false.
+        which is < 0.
         """
         z = self.tableau[-1, :-1]
         return all(val >= 0 for val in z)
@@ -97,35 +100,48 @@ class Simplex:
         """
         return self.__compute_pivot_row_position(), self.__compute_pivot_col_position()
 
-    def sub_pivoting_1(self, row_idx, col_idx):
+    def __sub_pivoting_1(self, row_idx, col_idx):
         """Part 1 of the pivot-changing part: the goal of this
         method is to set the pivot to 1 by multiplying the corresponding row by a certain factor"""
         pivot = self.tableau[row_idx, col_idx]
         self.tableau[row_idx, :] = self.tableau[row_idx, :] / pivot
 
-    def sub_pivoting_2(self, row_idx, col_idx):
-        # TODO
+    def __sub_pivoting_2(self, row_idx, col_idx):
         """Part 2 of the pivot-changing part: the goal of this
         method is to set the terms in the colum, apart from the pivot to 0"""
-        # for i in range(self.tableau.shape[0]):
-        #     # The row with the pivot must be avoided
-        #     if i != row_idx:
-        #         row = self.tableau[i, :]
-        #         multiplier = self.tableau[row_idx, :] * self.tableau[i, col_idx]
-        #         row = row - multiplier
-        for i, eq in enumerate(self.tableau):
-            if i != row_idx:
-                multiplier = self.tableau[i][col_idx]
-                self.tableau[i] = self.tableau[i] - multiplier
+        for i in range(self.tableau.shape[0]):
+            row = self.tableau[i, :]
+            # To set the term in the pivot column to zero we have to subtract the
+            # value from the entire row.
+            if i != row_idx and row[col_idx] != 0:
+                self.tableau[i] = row - row[col_idx]
 
     def apply_pivoting(self):
-        """[summary]
+        """This method apply the pivoting step to the tablueau by
+        finding an appropriate pivot to then change the accordingly the values.
+        This method modifies the tableau values.
         """
         row, col = self.get_pivot_position()
-        print(row, col)
-        print(self.tableau)
 
-        self.sub_pivoting_1(row, col)
-        print(self.tableau)
-        self.sub_pivoting_2(row, col)
-        print(self.tableau)
+        self.__sub_pivoting_1(row, col)
+        self.__sub_pivoting_2(row, col)
+
+    def extract_solution(self):
+        """This method guess the solution from the tableau which has to be optimal.
+        A solution is composed by the non-basic variables' coefficient that appear in the first and the
+        last optimal tableau and its relative constant values.
+        """
+        return None
+
+    def simplex(self):
+        """Main method of the class. It needs to be called in order to get
+        an array of solutions. It iteratively search for a solution by applying a pivoting operation
+        to the tableau until the current set of solutions is optimal.
+        """
+        self.create_tableau()
+
+        while self.__is_optimal():
+            self.apply_pivoting()
+
+        sol = self.extract_solution()
+        return sol
