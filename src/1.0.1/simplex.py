@@ -2,7 +2,6 @@
 THIS FILE CONTAINS THE METHODS FOR THE SIMPLEX ALGORITHM EXECUTION.
 """
 import numpy as np
-from numpy.lib.function_base import extract
 class Simplex:
     """
     This class includes the Simplex algorithm and the method associated. As it is, it can
@@ -26,17 +25,20 @@ class Simplex:
         self.bounds_params = A
         # Array of constants
         self.constants = b
-        # Flag for setting the maximization/problem
-        self.maximization = True
-
-        # self.slack_vars = np.zeros(self.constants.shape[0])
 
         # Array of solutions
-        self.solutions = []
-        self.n_vars = np.count_nonzero(self.of_params)      # since the tableau is ordered from left to right we need only the number of original variables in the problem
+        # since the tableau is ordered from left to right we need only the number of original variables in the problem
+        self.n_vars = np.count_nonzero(self.of_params)
+        self.solutions = np.zeros(self.n_vars)
+        self.slack = np.zeros(self.constants.shape[0])
+        # value of the objective function
+        self.objective = 0
 
         # USED FOR INTERNAL USE: it is the internal tableau built with the relative method
         self.tableau = []
+        self.iteration = 0
+        # Flag for setting the maximization/problem
+        self.maximization = True
 
     def create_tableau(self):
         """
@@ -49,8 +51,8 @@ class Simplex:
             -c    0]
         where z is the coefficient relative to objective function
         """
-        Ab = np.array([np.concatenate((p, b)) for p, b in zip(self.bounds_params, self.constants.T)])
-        z = np.concatenate((-self.of_params, [0])).reshape((Ab.shape[1],1))        # the objective function should be correctly negated
+        Ab = np.array([np.concatenate((p, b)) for p, b in zip(self.bounds_params, self.constants.T)], dtype=np.float64)
+        z = np.array(np.concatenate((-self.of_params, [0])).reshape((Ab.shape[1],1)), dtype=np.float64)        # the objective function should be correctly negated
         self.tableau = np.concatenate((Ab, z.T), axis = 0)
 
     def __is_optimal(self):
@@ -58,8 +60,8 @@ class Simplex:
         This method perform a simple check on the last row of the tableau if there an element
         which is < 0.
         """
-        z = self.tableau[-1, :-1]
-        return all(val >= 0 for val in z)
+        c = self.tableau[-1, :-1]
+        return all(val >= 0 for val in c)
 
     def __is_basic(self, idx):
         """Checks if the column at index idx is a unit-column, then the variable associated
@@ -105,6 +107,7 @@ class Simplex:
         method is to set the pivot to 1 by multiplying the corresponding row by a certain factor"""
         pivot = self.tableau[row_idx, col_idx]
         self.tableau[row_idx, :] = self.tableau[row_idx, :] / pivot
+        print(f'Dividing by {pivot}')
 
     def __sub_pivoting_2(self, row_idx, col_idx):
         """Part 2 of the pivot-changing part: the goal of this
@@ -113,8 +116,12 @@ class Simplex:
             row = self.tableau[i, :]
             # To set the term in the pivot column to zero we have to subtract the
             # value from the entire row.
+            print(f'Subtracting by {row[col_idx]}')
             if i != row_idx and row[col_idx] != 0:
-                self.tableau[i] = row - row[col_idx]
+                # The operation is: R_i = R_i - mul * R_p
+                pivot_row = self.tableau[row_idx, :]
+                multiplier = row[col_idx]
+                self.tableau[i, :] = row - multiplier * pivot_row
 
     def apply_pivoting(self):
         """This method apply the pivoting step to the tablueau by
@@ -122,16 +129,33 @@ class Simplex:
         This method modifies the tableau values.
         """
         row, col = self.get_pivot_position()
+        print(f'Pivoting on row {row} and column {col}')
 
         self.__sub_pivoting_1(row, col)
         self.__sub_pivoting_2(row, col)
+
+    # def __repr__(self):
+    #     print(f'Tableau at iteration {self.iteration}:\n')
+    #     print(self.tableau)
 
     def extract_solution(self):
         """This method guess the solution from the tableau which has to be optimal.
         A solution is composed by the non-basic variables' coefficient that appear in the first and the
         last optimal tableau and its relative constant values.
         """
-        return None
+        for col in range(self.tableau.shape[1]):
+            if self.__is_basic(col):
+                idx = np.argmax(self.tableau[:, col])
+                print(f'idx: {idx} col: {col}')
+                if col < self.n_vars:
+                    # this must be included in the solutions list
+                    self.solutions[col] = self.tableau[idx, -1]
+                else:
+                    # this must be included in the slack list
+                    self.slack[col] = self.tableau[idx, -1]
+            else:
+                self.solutions[col] = 0
+        self.objective = self.tableau[-1, -1]
 
     def simplex(self):
         """Main method of the class. It needs to be called in order to get
@@ -139,9 +163,12 @@ class Simplex:
         to the tableau until the current set of solutions is optimal.
         """
         self.create_tableau()
+        print(self.tableau)
 
-        while self.__is_optimal():
+        while not self.__is_optimal():
             self.apply_pivoting()
+            print(self.tableau)
+            self.iteration += 1
 
-        sol = self.extract_solution()
-        return sol
+        self.extract_solution()
+        return self.solutions
