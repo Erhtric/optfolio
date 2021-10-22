@@ -22,4 +22,4 @@ if __name__ == "__main__":
     handler = simplex.Simplex(c, A, b)
     handler.create_tableau()
     tableau = handler.tableau
-    handler.sub_pivoting_1(1,1)
+    handler.apply_pivoting()

@@ -1,9 +1,12 @@
+"""
+THIS FILE CONTAINS THE METHODS FOR THE SIMPLEX ALGORITHM EXECUTION.
+"""
 import numpy as np
 class Simplex:
     """
     This class includes the Simplex algorithm and the method associated. As it is, it can
     be used to solve any linear optimization problem. In this specific project, it will be
-    used to solve a portfolio optimization problem, even though there are faster method to do so.
+    used to solve a portfolio o/ptimization problem, even though there are faster method to do so.
     """
 
     def __init__(self, c, A, b):
@@ -12,7 +15,8 @@ class Simplex:
             max c.T @ X s.t. A @ X = b
         where:
             - c is the vector of coefficients for the objective function
-            - A is the matrix of coefficients for the constraint equations + coefficients of the slack variables
+            - A is the matrix of coefficients for the constraint equations
+                + coefficients of the slack variables
             - b is the vector of constants on the RHS of the constraint equations
         """
         # Array of coefficients of the objective function
@@ -33,8 +37,9 @@ class Simplex:
 
     def create_tableau(self):
         """
-        Create the tableau. From left to right, the column identify a different variable or constant; indeed
-        we will have all the non-basic variables, then the slack variables.
+        Create the tableau. From left to right, the column identify a different
+        variable or constant; indeed we will have all the non-basic variables,
+        then the slack variables.
 
         tableau\n
         = [[X S] b
@@ -99,19 +104,28 @@ class Simplex:
         self.tableau[row_idx, :] = self.tableau[row_idx, :] / pivot
 
     def sub_pivoting_2(self, row_idx, col_idx):
+        # TODO
         """Part 2 of the pivot-changing part: the goal of this
         method is to set the terms in the colum, apart from the pivot to 0"""
-        for i in range(self.tableau.shape[0]):
-            # The row with the pivot must be avoided
+        # for i in range(self.tableau.shape[0]):
+        #     # The row with the pivot must be avoided
+        #     if i != row_idx:
+        #         row = self.tableau[i, :]
+        #         multiplier = self.tableau[row_idx, :] * self.tableau[i, col_idx]
+        #         row = row - multiplier
+        for i, eq in enumerate(self.tableau):
             if i != row_idx:
-                row = self.tableau[i, :]
-                multiplier = self.tableau[row_idx, :] * self.tableau[i, col_idx]
-                row = row - multiplier
+                multiplier = self.tableau[i][col_idx]
+                self.tableau[i] = self.tableau[i] - multiplier
 
     def apply_pivoting(self):
         """[summary]
         """
         row, col = self.get_pivot_position()
+        print(row, col)
+        print(self.tableau)
 
         self.sub_pivoting_1(row, col)
+        print(self.tableau)
         self.sub_pivoting_2(row, col)
+        print(self.tableau)
