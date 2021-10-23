@@ -20,17 +20,18 @@ class Simplex:
             - b is the vector of constants on the RHS of the constraint equations
         """
         # Array of coefficients of the objective function
-        self.of_params = c
+        self.of_params = c.reshape((1, c.shape[0]))
         # Matrix of coefficients of the constraints
         self.bounds_params = A
         # Array of constants
-        self.constants = b
+        self.constants = b.reshape((b.shape[0], 1))
 
         # Array of solutions
         # since the tableau is ordered from left to right we need only the number of original variables in the problem
         self.n_vars = np.count_nonzero(self.of_params)
         self.solutions = np.zeros(self.n_vars)
         self.slack = np.zeros(self.constants.shape[0])
+
         # value of the objective function
         self.objective = 0
 
@@ -51,8 +52,11 @@ class Simplex:
             -c    0]
         where z is the coefficient relative to objective function
         """
-        Ab = np.array([np.concatenate((p, b)) for p, b in zip(self.bounds_params, self.constants.T)], dtype=np.float64)
-        z = np.array(np.concatenate((-self.of_params, [0])).reshape((Ab.shape[1],1)), dtype=np.float64)        # the objective function should be correctly negated
+        Ab = np.array(
+                [np.concatenate((p, b)) for p, b in zip(self.bounds_params, self.constants)], dtype=np.float64)
+        # TODO
+        # the objective function should be correctly negated (based on the type of optimization we are doing)
+        z = np.append(-self.of_params, 0).reshape((Ab.shape[1], 1))
         self.tableau = np.concatenate((Ab, z.T), axis = 0)
 
     def __is_optimal(self):
@@ -107,7 +111,7 @@ class Simplex:
         method is to set the pivot to 1 by multiplying the corresponding row by a certain factor"""
         pivot = self.tableau[row_idx, col_idx]
         self.tableau[row_idx, :] = self.tableau[row_idx, :] / pivot
-        print(f'Dividing by {pivot}')
+        # print(f'Dividing by {pivot}')
 
     def __sub_pivoting_2(self, row_idx, col_idx):
         """Part 2 of the pivot-changing part: the goal of this
@@ -116,7 +120,7 @@ class Simplex:
             row = self.tableau[i, :]
             # To set the term in the pivot column to zero we have to subtract the
             # value from the entire row.
-            print(f'Subtracting by {row[col_idx]}')
+            # print(f'Subtracting by {row[col_idx]}')
             if i != row_idx and row[col_idx] != 0:
                 # The operation is: R_i = R_i - mul * R_p
                 pivot_row = self.tableau[row_idx, :]
@@ -129,7 +133,7 @@ class Simplex:
         This method modifies the tableau values.
         """
         row, col = self.get_pivot_position()
-        print(f'Pivoting on row {row} and column {col}')
+        # print(f'Pivoting on row {row} and column {col}')
 
         self.__sub_pivoting_1(row, col)
         self.__sub_pivoting_2(row, col)
@@ -140,21 +144,25 @@ class Simplex:
 
     def extract_solution(self):
         """This method guess the solution from the tableau which has to be optimal.
-        A solution is composed by the non-basic variables' coefficient that appear in the first and the
+        A solution is composed by the non-basic variables' coefficients that appear in the first and the
         last optimal tableau and its relative constant values.
         """
-        for col in range(self.tableau.shape[1]):
+        for col in range(self.tableau.shape[1] - 1):
             if self.__is_basic(col):
-                idx = np.argmax(self.tableau[:, col])
-                print(f'idx: {idx} col: {col}')
+                row_idx = np.argmax(self.tableau[:, col])
                 if col < self.n_vars:
-                    # this must be included in the solutions list
-                    self.solutions[col] = self.tableau[idx, -1]
+                    # THIS IS A SOLUTION VARIABLE
+                    self.solutions[col] = self.tableau[row_idx, -1]
                 else:
-                    # this must be included in the slack list
-                    self.slack[col] = self.tableau[idx, -1]
+                    # THIS IS A SLACK VARIABLE
+                    self.slack[col - self.n_vars] = self.tableau[row_idx, -1]
             else:
-                self.solutions[col] = 0
+                if col < self.n_vars:
+                    # THIS IS A SOLUTION VARIABLE
+                    self.solutions[col] = 0
+                else:
+                    # THIS IS A SLACK VARIABLE
+                    self.slack[col - self.n_vars] = 0
         self.objective = self.tableau[-1, -1]
 
     def simplex(self):
@@ -163,12 +171,16 @@ class Simplex:
         to the tableau until the current set of solutions is optimal.
         """
         self.create_tableau()
-        print(self.tableau)
 
         while not self.__is_optimal():
             self.apply_pivoting()
-            print(self.tableau)
             self.iteration += 1
 
         self.extract_solution()
         return self.solutions
+
+    def print_solution(self):
+        if self.__is_optimal():
+            print(f"Optimal solution found in {self.iteration} iterations")
+            print(f"Solution variables: \t{self.solutions}")
+            print(f"Slack variables: \t{self.slack}")
