@@ -54,7 +54,6 @@ class Simplex:
         """
         Ab = np.array(
                 [np.concatenate((p, b)) for p, b in zip(self.bounds_params, self.constants)], dtype=np.float64)
-        # TODO
         # the objective function should be correctly negated (based on the type of optimization we are doing)
         z = np.append(((-1) * self.maximization) * self.of_params, 0).reshape((Ab.shape[1], 1))
         self.tableau = np.concatenate((Ab, z.T), axis = 0)
@@ -101,6 +100,11 @@ class Simplex:
             # which are the negative ones (tagged as infinite)
             temp.append(np.inf if target <= 0 else b / target)
 
+        # If all the elements in the temporary memory are infinite, then it is impossible to improve
+        # the tableau anymore and the program is then unbounded
+        if all([val == np.inf for val in temp]):
+            raise Exception("STOPPED EXECUTION: LINEAR PROGRAM UNBOUNDED")
+
         return np.argmin(temp)
 
     def get_pivot_position(self):
@@ -140,10 +144,6 @@ class Simplex:
         self.__sub_pivoting_1(row, col)
         self.__sub_pivoting_2(row, col)
 
-    # def __repr__(self):
-    #     print(f'Tableau at iteration {self.iteration}:\n')
-    #     print(self.tableau)
-
     def extract_solution(self):
         """This method guess the solution from the tableau which has to be optimal.
         A solution is composed by the non-basic variables' coefficients that appear in the first and the
@@ -175,9 +175,11 @@ class Simplex:
         self.create_tableau()
 
         while not self.__is_optimal():
+            print(f'Objective function value: {self.tableau[-1, -1]}')
             self.apply_pivoting()
             self.iteration += 1
 
+        print(f'Objective function value: {self.tableau[-1, -1]}')
         self.extract_solution()
         return self.solutions
 
