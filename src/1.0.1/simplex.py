@@ -9,15 +9,15 @@ class Simplex:
     used to solve a portfolio o/ptimization problem, even though there are faster method to do so.
     """
 
-    def __init__(self, c, A, b):
+    def __init__(self, c, A, b, max=True):
         """
         Initializes a Simplex session in the standard form
             max c.T @ X s.t. A @ X = b
         where:
             - c is the vector of coefficients for the objective function
             - A is the matrix of coefficients for the constraint equations
-                + coefficients of the slack variables
             - b is the vector of constants on the RHS of the constraint equations
+            - max is the type of problem: True if we are maximizing and False if we are minimizing
         """
         # Array of coefficients of the objective function
         self.of_params = c.reshape((1, c.shape[0]))
@@ -39,7 +39,7 @@ class Simplex:
         self.tableau = []
         self.iteration = 0
         # Flag for setting the maximization/problem
-        self.maximization = True
+        self.maximization = max
 
     def create_tableau(self):
         """
@@ -48,15 +48,15 @@ class Simplex:
         then the slack variables.
 
         tableau\n
-        = [[X S] b
-            -c    0]
+        = [ A b
+            c 0]
         where z is the coefficient relative to objective function
         """
         Ab = np.array(
                 [np.concatenate((p, b)) for p, b in zip(self.bounds_params, self.constants)], dtype=np.float64)
         # TODO
         # the objective function should be correctly negated (based on the type of optimization we are doing)
-        z = np.append(-self.of_params, 0).reshape((Ab.shape[1], 1))
+        z = np.append(((-1) * self.maximization) * self.of_params, 0).reshape((Ab.shape[1], 1))
         self.tableau = np.concatenate((Ab, z.T), axis = 0)
 
     def __is_optimal(self):
@@ -70,8 +70,10 @@ class Simplex:
     def __is_basic(self, idx):
         """Checks if the column at index idx is a unit-column, then the variable associated
         is a basic variable. If it is not the case the variable it is a non-basic one.
+        A unit column is a vector which has one and exactly one value equal to one and the others
+        are equal to zero.
         """
-        return np.sum(self.tableau[:, idx]) == 1
+        return [True if el==0 else False for el in self.tableau[:, idx]].count(True) == self.tableau[:, idx].shape[0] - 1 and np.sum(self.tableau[:, idx]) == 1
 
     def __compute_pivot_col_position(self):
         """This method simply computes the column index for the pivot in the tableau.
@@ -184,3 +186,6 @@ class Simplex:
             print(f"Optimal solution found in {self.iteration} iterations")
             print(f"Solution variables: \t{self.solutions}")
             print(f"Slack variables: \t{self.slack}")
+
+    def print_tableau(self):
+        print(f'Tableau: \n{self.tableau}')
