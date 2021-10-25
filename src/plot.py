@@ -15,7 +15,7 @@ def plot_time_series(symbols: List[str], attr: str):
     columns = 2
     rows = int(np.ceil(n_symbols / 2))
 
-    DATA = pd.read_csv('./src/1.0.1/data/ASSET_DATA.csv')
+    DATA = pd.read_csv('./src/data/ASSET_DATA.csv')
 
     fig = plt.figure()
     fig.suptitle(f'{attr} prices ($)')
@@ -33,5 +33,5 @@ def plot_time_series(symbols: List[str], attr: str):
         plt.grid(True)
 
     fig.tight_layout()
-    fig.savefig(f'./src/1.0.1/results/{attr}_time_series.pdf')
+    fig.savefig(f'./src/results/{attr}_time_series.pdf')
     fig.show()

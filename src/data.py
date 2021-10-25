@@ -5,11 +5,6 @@ from yahoofinancials import YahooFinancials
 def get_history_data(tickers:List[str], start_date:str, end_date:str):
     """The method downloads the history of data from finance.yahoo.com
     of the given symbols.
-
-    Args:
-        tickers (List[str]): the objective ticker symbols
-        start_date (str): history data's starting date
-        end_date (str): history data's ending date
     """
     print('...Downloading data...')
     print(f'Starting date: {start_date}')
@@ -28,5 +23,5 @@ def get_history_data(tickers:List[str], start_date:str, end_date:str):
 
     print('...saving data to file...')
     DATA = pd.concat(frames)
-    DATA.to_csv('./src/1.0.1/data/ASSET_DATA.csv')
+    DATA.to_csv(f'./src/data/ASSET_DATA_{start_date}_to_{end_date}.csv')
     print('Procedure complete!')

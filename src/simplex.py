@@ -1,7 +1,10 @@
 """
 THIS FILE CONTAINS THE METHODS FOR THE SIMPLEX ALGORITHM EXECUTION.
 """
+import matplotlib
 import numpy as np
+from matplotlib import pyplot as plt
+
 class Simplex:
     """
     This class includes the Simplex algorithm and the method associated. As it is, it can
@@ -33,10 +36,11 @@ class Simplex:
         self.slack = np.zeros(self.constants.shape[0])
 
         # value of the objective function
-        self.objective = 0
+        self.objective = []
 
         # USED FOR INTERNAL USE: it is the internal tableau built with the relative method
         self.tableau = []
+        # Number of Simplex iterations, 0 is the starting point
         self.iteration = 0
         # Flag for setting the maximization/problem
         self.maximization = max
@@ -165,7 +169,7 @@ class Simplex:
                 else:
                     # THIS IS A SLACK VARIABLE
                     self.slack[col - self.n_vars] = 0
-        self.objective = self.tableau[-1, -1]
+        self.objective.append(self.tableau[-1, -1])
 
     def simplex(self):
         """Main method of the class. It needs to be called in order to get
@@ -176,6 +180,8 @@ class Simplex:
 
         while not self.__is_optimal():
             print(f'Objective function value: {self.tableau[-1, -1]}')
+            self.objective.append(self.tableau[-1, -1])
+
             self.apply_pivoting()
             self.iteration += 1
 
@@ -191,3 +197,12 @@ class Simplex:
 
     def print_tableau(self):
         print(f'Tableau: \n{self.tableau}')
+
+    def plot_objective_function(self):
+        matplotlib.use('TkAgg')
+        # print(matplotlib.get_backend())
+        fig = plt.figure()
+        fig.suptitle('Objective Value History')
+        plt.plot(np.arange(self.iteration+1), self.objective)
+        plt.grid(True)
+        fig.savefig(f'./src/results/objective_history_simplex.pdf')

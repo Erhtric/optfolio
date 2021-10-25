@@ -2,6 +2,7 @@ import numpy as np
 # import cla
 # import plot
 import simplex
+from cla import Portfolio
 
 if __name__ == "__main__":
 
@@ -25,7 +26,10 @@ if __name__ == "__main__":
 
     #cla_pf = cla.CLA(['TSLA', 'GME', "AAPL"], [], [], '2014-01-01', '2016-12-31')
     #print(cla_pf)
-    handler = simplex.Simplex(c, A, b, True)
-    handler.simplex()
-    handler.print_solution()
-    handler.print_tableau()
+    #handler = simplex.Simplex(c, A, b, True)
+    #handler.simplex()
+    #handler.print_solution()
+
+    tickers = ['TSLA', 'GME', 'AAPL']
+    pf = Portfolio(tickers, np.zeros(len(tickers)), np.array([0.5, 0.5, 1.0]), '2020-01-01', '2021-01-01')
+    print(pf.to_matrix_form())
