@@ -22,7 +22,7 @@ class Portfolio:
         self.mean = self.compute_individual_mean()
         self.covariance = self.compute_covariance_matrix()
 
-        if self.lb.shape[0] != len(self.tickers) or self.ub.shape[0] != len(self.tickers):
+        if lower.shape[0] != len(self.tickers) or upper.shape[0] != len(self.tickers):
             raise Exception("STOPPED EXECUTION: PORTFOLIO NOT INITIALIZED - PLEASE INSERT LEGIT BOUND ARRAYS")
         else:
             self.lb = lower.reshape((lower.shape[0], 1))
@@ -85,18 +85,23 @@ class Portfolio:
     def compute_portfolio_std(self):
         return np.sqrt(self.compute_portfolio_variance())
 
-    def to_matrix_form(self):
-        matrix = np.zeros((self.lb.shape[0] + self.ub.shape[0] + 2, len(self.tickers) + 1))\
+    def to_standard_form(self):
+        matrix = np.zeros((self.lb.shape[0] + self.ub.shape[0] + 2, len(self.tickers) + self.lb.shape[0] + self.ub.shape[0] + 1))\
 
         self.__set_bounds_coeff(matrix)
+        self.__set_weights(matrix)
+        self.__set_utility_function(matrix)
         return matrix
 
     def __set_weights(self, matrix):
+        """Set the FULL-INVESTMENT CONSTRAINT, it requires thath all the coefficients for the variables
+        to be equal to 1.0.
         """
-        """
-        pass
+        for c in range(self.weights.shape[0]):
+            matrix[-2, c] = self.weights[c]
+        matrix[-2, -1] = 1
 
-    def __set_objective(self, matrix):
+    def __set_utility_function(self, matrix):
         """
         """
         pass
@@ -109,15 +114,19 @@ class Portfolio:
         """
         for r in range(self.lb.shape[0]):
             # The first m rows are for the lower bound (<=)
+            # The constants are by definition all nonnegative!
+            # To convert into equation we need to add a SLACK variable
             matrix[r, -1] = self.lb[r]
-            # The last m rows are for the upper bound (>=)
-            # TODO: in some way we have to transform these diseq by multiplying them by -1
-            matrix[r + self.lb.shape[0], -1] = self.ub[r]
-            matrix[r + self.lb.shape[0], -1] = - matrix[r + self.lb.shape[0], -1]
-        return matrix
+            matrix[r,  r] = 1   # for the variable
+            matrix[r,  r + self.lb.shape[0]] = 1   # for the slack variable
 
-    def set_utility_function(self):
-        pass
+            # The last m rows are for the upper bound (>=)
+            # Since the RHS is always nonnegative we do not have to multiply by -1
+            # To convert into equation we need to subtract a SURPLUS variable
+            matrix[r + self.lb.shape[0], -1] = self.ub[r]
+            matrix[r + self.lb.shape[0],  r] = 1    # for the variable
+            matrix[r + self.lb.shape[0],  r + 2 * self.lb.shape[0]] = 1    # for the surplus variable
+        return matrix
 
 class CLA(Portfolio):
 

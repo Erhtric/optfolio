@@ -31,5 +31,5 @@ if __name__ == "__main__":
     #handler.print_solution()
 
     tickers = ['TSLA', 'GME', 'AAPL']
-    pf = Portfolio(tickers, np.zeros(len(tickers)), np.array([0.5, 0.5, 1.0]), '2020-01-01', '2021-01-01')
-    print(pf.to_matrix_form())
+    pf = Portfolio(tickers, np.array([1.0, 2.0, 3.0]), np.array([4.0, 5.0, 6.0]), '2020-01-01', '2021-01-01')
+    print(pf.to_standard_form())
