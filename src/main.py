@@ -1,7 +1,9 @@
 import numpy as np
 # import cla
 # import plot
-import simplex
+from solvers.simplex import Simplex
+import solvers.cg_gradient
+
 from cla import Portfolio
 
 if __name__ == "__main__":
@@ -30,6 +32,8 @@ if __name__ == "__main__":
     #handler.simplex()
     #handler.print_solution()
 
-    tickers = ['TSLA', 'GME', 'AAPL']
-    pf = Portfolio(tickers, np.array([1.0, 2.0, 3.0]), np.array([4.0, 5.0, 6.0]), '2020-01-01', '2021-01-01')
+    tickers = ['TSLA', 'GME', 'AAPL', 'JNJ']
+    pf = Portfolio(tickers, np.array([0.1, 0.0, 0.0, 0.0]), np.array([0.3, 0.3, 1.0, 1.0]), '2020-01-01', '2021-01-01')
     print(pf.to_standard_form())
+    print(type(pf.compute_portfolio_std()))
+    pf.print_stats()

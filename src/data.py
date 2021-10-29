@@ -23,5 +23,5 @@ def get_history_data(tickers:List[str], start_date:str, end_date:str):
 
     print('...saving data to file...')
     DATA = pd.concat(frames)
-    DATA.to_csv(f'./src/data/ASSET_DATA_{start_date}_to_{end_date}.csv')
+    DATA.to_csv(f'./src/data/ASSET_DATA_{start_date}_to_{end_date}_{tickers}.csv')
     print('Procedure complete!')

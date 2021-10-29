@@ -18,24 +18,29 @@ class Portfolio:
         """
         self.tickers = tickers
         self.market_data = self.get_market_data(start_date, end_date)       # stock data formatted as a Pandas DataFrame
+        self.start_date = start_date
+        self.end_date = end_date
 
         self.mean = self.compute_individual_mean()
         self.covariance = self.compute_covariance_matrix()
 
-        if lower.shape[0] != len(self.tickers) or upper.shape[0] != len(self.tickers):
+        if lower.shape[0] != len(self.tickers) or upper.shape[0] != len(self.tickers) or \
+            any(l > 1.0 for l in lower) or any(u > 1.0 for u in upper):
             raise Exception("STOPPED EXECUTION: PORTFOLIO NOT INITIALIZED - PLEASE INSERT LEGIT BOUND ARRAYS")
         else:
             self.lb = lower.reshape((lower.shape[0], 1))
             self.ub = upper.reshape((upper.shape[0], 1))
 
-        self.weights = np.ones(len(tickers))
+        # WEIGTHS initialization
+        self.weights = np.ones(len(tickers)).reshape((len(tickers), 1))
+        self.weights = self.weights / self.weights.sum(axis=0, keepdims=True)
 
     def get_market_data(self, start_date, end_date):
-        if not os.path.isfile(f'./src/data/ASSET_DATA_{start_date}_to_{end_date}.csv'):
+        if not os.path.isfile(f'./src/data/ASSET_DATA_{start_date}_to_{end_date}_{self.tickers}.csv'):
             print('File not found, initializing download session')
             data.get_history_data(self.tickers, start_date, end_date)
 
-        df = pd.read_csv(f'./src/data/ASSET_DATA_{start_date}_to_{end_date}.csv').set_index('formatted_date')
+        df = pd.read_csv(f'./src/data/ASSET_DATA_{start_date}_to_{end_date}_{self.tickers}.csv').set_index('formatted_date')
         return df
 
     def compute_individual_mean(self):
@@ -63,7 +68,7 @@ class Portfolio:
         for count, ticker in enumerate(self.tickers):
             close_prices = self.market_data['close'][self.market_data['ticker']==ticker]
             COV.insert(count, ticker, close_prices, allow_duplicates=True)
-        return COV.cov()
+        return COV.cov().to_numpy()
 
     def compute_correlation_matrix(self):
         """
@@ -76,13 +81,26 @@ class Portfolio:
             COV.insert(count, ticker, close_prices, allow_duplicates=True)
         return COV.corr()
 
+    def compute_returns(self):
+        """Compute the gain/loss on the portfolio over the fixed timeframe specified at initialization.
+        """
+        close_prices = pd.DataFrame()
+        for count, ticker in enumerate(self.tickers):
+            close_prices.insert(count, f"{ticker}", self.market_data['close'][self.market_data['ticker']==ticker])
+        return close_prices.pct_change()#.iloc[1: , :]       # remove the first NaN row
+
     def compute_portfolio_expected_return(self):
-        return self.mean @ self.weights
+        """Computes the expected portfolio's expected return defined as the weighted sum of the returns on the assets of the portfolio.
+        """
+        return self.compute_returns() @ self.weights
 
     def compute_portfolio_variance(self):
-        return self.weights.T @ (self.covariance @ self.weights)
+        print(type(self.weights))
+        print(type(self.covariance))
+        return self.weights.T @ self.covariance @ self.weights
 
     def compute_portfolio_std(self):
+        """Computes the portfolio's standard deviation, also called the volatily of the portfolio"""
         return np.sqrt(self.compute_portfolio_variance())
 
     def to_standard_form(self):
@@ -90,7 +108,7 @@ class Portfolio:
 
         self.__set_bounds_coeff(matrix)
         self.__set_weights(matrix)
-        self.__set_utility_function(matrix)
+        # self.__set_utility_function_1(matrix)
         return matrix
 
     def __set_weights(self, matrix):
@@ -98,13 +116,18 @@ class Portfolio:
         to be equal to 1.0.
         """
         for c in range(self.weights.shape[0]):
-            matrix[-2, c] = self.weights[c]
+            matrix[-2, c] = 1
         matrix[-2, -1] = 1
 
-    def __set_utility_function(self, matrix):
+    def __set_utility_function_1(self, matrix):
+        """Set the utility function as specified by the MAXIMUM EXPECTED RETURN PORTFOLIO where
+        the utility function is the following:
+            u = exp_p
+        with exp_p the expected return of the portfolio.
         """
-        """
-        pass
+        exp_p = self.compute_portfolio_expected_return().to_numpy()
+        print(self.weights.shape)
+        print(self.weights.T @ exp_p)
 
     def __set_bounds_coeff(self, matrix):
         """Set the constants for the upper and lower bound. We already know that in a standard allocation problem
@@ -127,6 +150,16 @@ class Portfolio:
             matrix[r + self.lb.shape[0],  r] = 1    # for the variable
             matrix[r + self.lb.shape[0],  r + 2 * self.lb.shape[0]] = 1    # for the surplus variable
         return matrix
+
+    def print_stats(self):
+        print('Portfolio data:')
+        print(f'\t-tickers: {self.tickers}')
+        print(f'\t-participations: {list(self.weights[:, 0])}')
+        print(f'\t-variance: {self.compute_portfolio_variance()}')
+        print(f'\t-standard deviation (volatility): {self.compute_portfolio_std()}')
+        print(f'Covariance matrix: \n{self.compute_covariance_matrix()}')
+
+
 
 class CLA(Portfolio):
 
