@@ -21,9 +21,6 @@ class Portfolio:
         self.start_date = start_date
         self.end_date = end_date
 
-        self.mean = self.compute_individual_mean()
-        self.covariance = self.compute_covariance_matrix()
-
         if lower.shape[0] != len(self.tickers) or upper.shape[0] != len(self.tickers) or \
             any(l > 1.0 for l in lower) or any(u > 1.0 for u in upper):
             raise Exception("STOPPED EXECUTION: PORTFOLIO NOT INITIALIZED - PLEASE INSERT LEGIT BOUND ARRAYS")
@@ -32,10 +29,14 @@ class Portfolio:
             self.ub = upper.reshape((upper.shape[0], 1))
 
         # WEIGTHS initialization
-        self.weights = np.ones(len(tickers)).reshape((len(tickers), 1))
+        self.weights = np.ones((len(tickers), 1))
         self.weights = self.weights / self.weights.sum(axis=0, keepdims=True)
 
+
+    ###### METHODS ######
+
     def get_market_data(self, start_date, end_date):
+        # TO REMOVE IF YAHOOFINANCIALS IS NOT PRESENT
         if not os.path.isfile(f'./src/data/ASSET_DATA_{start_date}_to_{end_date}_{self.tickers}.csv'):
             print('File not found, initializing download session')
             data.get_history_data(self.tickers, start_date, end_date)
@@ -59,45 +60,53 @@ class Portfolio:
         """
         return np.mean(self.mean, axis=0)
 
-    def compute_covariance_matrix(self):
-        """
-        Compute the covariance matrix between the assets
-        """
-        # Combine the stock data in a single matrix where each column has the prices for the individual asset
-        COV = pd.DataFrame()
-        for count, ticker in enumerate(self.tickers):
-            close_prices = self.market_data['close'][self.market_data['ticker']==ticker]
-            COV.insert(count, ticker, close_prices, allow_duplicates=True)
-        return COV.cov().to_numpy()
+    # def compute_covariance_matrix(self):
+    #     """
+    #     Compute the covariance matrix between the assets
+    #     """
+    #     # Combine the stock data in a single matrix where each column has the prices for the individual asset
+    #     COV = pd.DataFrame()
+    #     for count, ticker in enumerate(self.tickers):
+    #         close_prices = self.market_data['close'][self.market_data['ticker']==ticker]
+    #         COV.insert(count, ticker, close_prices, allow_duplicates=True)
+    #     return COV.cov().to_numpy()
 
-    def compute_correlation_matrix(self):
-        """
-        Compute the correlation matrix between the assets
-        """
-        # Combine the stock data in a single matrix where each column has the prices for the individual asset
-        COV = pd.DataFrame()
-        for count, ticker in enumerate(self.tickers):
-            close_prices = self.market_data['close'][self.market_data['ticker']==ticker]
-            COV.insert(count, ticker, close_prices, allow_duplicates=True)
-        return COV.corr()
-
-    def compute_returns(self):
+    def compute_daily_returns(self):
         """Compute the gain/loss on the portfolio over the fixed timeframe specified at initialization.
         """
         close_prices = pd.DataFrame()
         for count, ticker in enumerate(self.tickers):
-            close_prices.insert(count, f"{ticker}", self.market_data['close'][self.market_data['ticker']==ticker])
-        return close_prices.pct_change()#.iloc[1: , :]       # remove the first NaN row
+            close_prices.insert(count, f"{ticker}", self.market_data['adjclose'][self.market_data['ticker']==ticker])
+        return close_prices.pct_change()
+
+    def compute_daily_returns_mean(self):
+        """Compute the average return for each asset.
+        """
+        return self.compute_daily_returns().mean().to_numpy()
+
+    def compute_std_returns(self):
+        return self.compute_daily_returns().std()
+
+    def compute_covariance_matrix_returns(self):
+        """Compute the covariance matrix between the assets. It has been annualized to the 252 trading days.
+        """
+        return self.compute_daily_returns().cov() * 252
 
     def compute_portfolio_expected_return(self):
         """Computes the expected portfolio's expected return defined as the weighted sum of the returns on the assets of the portfolio.
         """
-        return self.compute_returns() @ self.weights
+        allocated_daily_returns = self.compute_daily_returns_mean() @ self.weights
+        return np.sum(allocated_daily_returns)
+
+    def compute_portfolio_daily_expected_return(self):
+        """Computes the expected portfolio's expected return defined as the weighted sum of the returns on the assets of the portfolio.
+        """
+        return self.compute_daily_returns().to_numpy() @ self.weights
 
     def compute_portfolio_variance(self):
-        print(type(self.weights))
-        print(type(self.covariance))
-        return self.weights.T @ self.covariance @ self.weights
+        """Compute the total portfolio's variance.
+        """
+        return (self.weights.T @ self.compute_covariance_matrix_returns().to_numpy() @ self.weights)[0, 0]
 
     def compute_portfolio_std(self):
         """Computes the portfolio's standard deviation, also called the volatily of the portfolio"""
@@ -129,6 +138,14 @@ class Portfolio:
         print(self.weights.shape)
         print(self.weights.T @ exp_p)
 
+    def __set_utility_function_2(self, matrix):
+        """Set the utility function as specified by the MINIMUM RISK PORTFOLIO where
+        the utility function is the following:
+            u = std_p
+        with std_p the standard deviation (the risk) of the portfolio.
+        """
+        pass
+
     def __set_bounds_coeff(self, matrix):
         """Set the constants for the upper and lower bound. We already know that in a standard allocation problem
         the bound equations are in the following form:
@@ -153,13 +170,15 @@ class Portfolio:
 
     def print_stats(self):
         print('Portfolio data:')
-        print(f'\t-tickers: {self.tickers}')
-        print(f'\t-participations: {list(self.weights[:, 0])}')
-        print(f'\t-variance: {self.compute_portfolio_variance()}')
-        print(f'\t-standard deviation (volatility): {self.compute_portfolio_std()}')
-        print(f'Covariance matrix: \n{self.compute_covariance_matrix()}')
+        print(f' - assets: {self.tickers}')
+        print(f' - assets participations: {list(self.weights[:, 0])}')
+        print(f' - portfolio variance: {self.compute_portfolio_variance():.4f}')
+        print(f' - portfolio standard deviation (risk): {self.compute_portfolio_std():.4f}')
+        print(f' - portfolio current expected return: {np.sum(self.compute_portfolio_expected_return()):.4f}')
 
-
+        # print(f'Daily returns: \n{self.compute_daily_returns()}')
+        # print(f'Daily portfolio expected returns: \n{self.compute_portfolio_daily_expected_return()}')
+        # print(f'Daily returns mean: \n{self.compute_daily_returns_mean()}')
 
 class CLA(Portfolio):
 
