@@ -12,7 +12,11 @@ class Simplex:
     used to solve a portfolio o/ptimization problem, even though there are faster method to do so.
     """
 
-    def __init__(self, c, A, b, max=True):
+    def __init__(self
+                , c: np.array
+                , A: np.array
+                , b: np.array
+                , max=True):
         """
         Initializes a Simplex session in the standard form
             max c.T @ X s.t. A @ X = b
@@ -62,7 +66,7 @@ class Simplex:
         z = np.append(((-1) * self.maximization) * self.of_params, 0).reshape((Ab.shape[1], 1))
         self.tableau = np.concatenate((Ab, z.T), axis = 0)
 
-    def __is_optimal(self):
+    def __is_optimal(self) -> bool:
         """A solution is optimal if in every term in the objective function is non-negative.
         This method perform a simple check on the last row of the tableau if there an element
         which is < 0.
@@ -70,7 +74,7 @@ class Simplex:
         c = self.tableau[-1, :-1]
         return all(val >= 0 for val in c)
 
-    def __is_basic(self, idx):
+    def __is_basic(self, idx) -> bool:
         """Checks if the column at index idx is a unit-column, then the variable associated
         is a basic variable. If it is not the case the variable it is a non-basic one.
         A unit column is a vector which has one and exactly one value equal to one and the others
@@ -78,7 +82,7 @@ class Simplex:
         """
         return [True if el==0 else False for el in self.tableau[:, idx]].count(True) == self.tableau[:, idx].shape[0] - 1 and np.sum(self.tableau[:, idx]) == 1
 
-    def __compute_pivot_col_position(self):
+    def __compute_pivot_col_position(self) -> int:
         """This method simply computes the column index for the pivot in the tableau.
         If a solution is non optimal, then one or more terms in the last row of the tableau
         are negative, this is done by taking the minimum value among those values.
@@ -86,7 +90,7 @@ class Simplex:
         z = self.tableau[-1]
         return np.argmin(z, axis=0) if np.min(z) < 0 else None
 
-    def __compute_pivot_row_position(self):
+    def __compute_pivot_row_position(self) -> int:
         """This method computes the row index for the pivot in the tableau.
         If a solution is non optimal, and given the pivoting column the index for the
         row will be the minimum value obtained as the result from dividing the corresponding
@@ -171,7 +175,7 @@ class Simplex:
                     self.slack[col - self.n_vars] = 0
         self.objective.append(self.tableau[-1, -1])
 
-    def simplex(self):
+    def simplex(self) -> np.array:
         """Main method of the class. It needs to be called in order to get
         an array of solutions. It iteratively search for a solution by applying a pivoting operation
         to the tableau until the current set of solutions is optimal.

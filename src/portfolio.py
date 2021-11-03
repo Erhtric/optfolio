@@ -2,10 +2,15 @@ import data
 import pandas as pd
 import numpy as np
 import os
+from typing import List
 
 class Portfolio:
 
-    def __init__(self, tickers, lower, upper, start_date, end_date):
+    def __init__(self, tickers: List[str]
+                , lower: np.array
+                , upper: np.array
+                , start_date: str
+                , end_date: str):
         """
         Initializes a portfolio instance
 
@@ -17,7 +22,7 @@ class Portfolio:
             end_date: the ending date for the historical data
         """
         self.tickers = tickers
-        self.market_data = self.get_market_data(start_date, end_date)       # stock data formatted as a Pandas DataFrame
+        self.market_data = self.get_market_data(start_date, end_date)
         self.start_date = start_date
         self.end_date = end_date
 
@@ -28,14 +33,19 @@ class Portfolio:
             self.lb = lower.reshape((lower.shape[0], 1))
             self.ub = upper.reshape((upper.shape[0], 1))
 
-        # WEIGTHS initialization
+        # WEIGHTS initialization
         self.weights = np.ones((len(tickers), 1))
         self.weights = self.weights / self.weights.sum(axis=0, keepdims=True)
 
+        self.n_assets = len(tickers)
+        self.portfolio_returns = []         # store portfolio returns
+        self.portfolio_risks = []           # store portfolio volatility
 
-    ###### METHODS ######
+    ##################          PORTFOLIO METHODS            ################
 
-    def get_market_data(self, start_date, end_date):
+    def get_market_data(self
+                        , start_date: str
+                        , end_date: str) -> pd.DataFrame:
         # TO REMOVE IF YAHOOFINANCIALS IS NOT PRESENT
         if not os.path.isfile(f'./src/data/ASSET_DATA_{start_date}_to_{end_date}_{self.tickers}.csv'):
             print('File not found, initializing download session')
@@ -44,73 +54,43 @@ class Portfolio:
         df = pd.read_csv(f'./src/data/ASSET_DATA_{start_date}_to_{end_date}_{self.tickers}.csv').set_index('formatted_date')
         return df
 
-    def compute_individual_mean(self):
-        """
-        Computes the vector of the individual assets' means
-        """
-        mean = np.zeros(len(self.tickers))
-        for count, ticker in enumerate(self.tickers):
-            close = self.market_data['close'][self.market_data['ticker']==ticker]
-            mean[count] = close.mean()
-        return mean
-
-    def compute_portfolio_mean(self):
-        """
-        Computes the portfolio's mean
-        """
-        return np.mean(self.mean, axis=0)
-
-    # def compute_covariance_matrix(self):
-    #     """
-    #     Compute the covariance matrix between the assets
-    #     """
-    #     # Combine the stock data in a single matrix where each column has the prices for the individual asset
-    #     COV = pd.DataFrame()
-    #     for count, ticker in enumerate(self.tickers):
-    #         close_prices = self.market_data['close'][self.market_data['ticker']==ticker]
-    #         COV.insert(count, ticker, close_prices, allow_duplicates=True)
-    #     return COV.cov().to_numpy()
-
-    def compute_daily_returns(self):
+    def compute_returns(self) -> pd.DataFrame:
         """Compute the gain/loss on the portfolio over the fixed timeframe specified at initialization.
+        We make a return as the percentage chenge in the closing price of the asset over the previous day's closing price.
         """
         close_prices = pd.DataFrame()
         for count, ticker in enumerate(self.tickers):
             close_prices.insert(count, f"{ticker}", self.market_data['adjclose'][self.market_data['ticker']==ticker])
         return close_prices.pct_change()
 
-    def compute_daily_returns_mean(self):
+    def compute_individual_expected_returns(self) -> pd.DataFrame:
         """Compute the average return for each asset.
+
+        This method will be useful for the optimization part. Following the definition of the
+        expected value we are computing the means of the individual assets instead of the entire portfolio.
         """
-        return self.compute_daily_returns().mean().to_numpy()
+        return self.compute_returns().mean()
 
-    def compute_std_returns(self):
-        return self.compute_daily_returns().std()
-
-    def compute_covariance_matrix_returns(self):
-        """Compute the covariance matrix between the assets. It has been annualized to the 252 trading days.
+    def compute_returns_covariance_matrix(self) -> pd.DataFrame:
+        """Compute the covariance matrix between the assets' returns. It has been annualized to the 252 trading days.
         """
-        return self.compute_daily_returns().cov() * 252
+        return self.compute_returns().cov() * 252
 
-    def compute_portfolio_expected_return(self):
+    def compute_portfolio_return(self) -> pd.DataFrame:
         """Computes the expected portfolio's expected return defined as the weighted sum of the returns on the assets of the portfolio.
         """
-        allocated_daily_returns = self.compute_daily_returns_mean() @ self.weights
-        return np.sum(allocated_daily_returns)
+        return self.compute_returns() @ self.weights
 
-    def compute_portfolio_daily_expected_return(self):
-        """Computes the expected portfolio's expected return defined as the weighted sum of the returns on the assets of the portfolio.
-        """
-        return self.compute_daily_returns().to_numpy() @ self.weights
-
-    def compute_portfolio_variance(self):
+    def compute_portfolio_variance(self) -> np.float64:
         """Compute the total portfolio's variance.
         """
-        return (self.weights.T @ self.compute_covariance_matrix_returns().to_numpy() @ self.weights)[0, 0]
+        return (self.weights.T @ self.compute_returns_covariance_matrix().to_numpy() @ self.weights)[0, 0]
 
-    def compute_portfolio_std(self):
+    def compute_portfolio_std(self) -> np.float64:
         """Computes the portfolio's standard deviation, also called the volatily of the portfolio"""
         return np.sqrt(self.compute_portfolio_variance())
+
+    ##################          OPTIMIZATION METHODS            ################
 
     def to_standard_form(self):
         matrix = np.zeros((self.lb.shape[0] + self.ub.shape[0] + 2, len(self.tickers) + self.lb.shape[0] + self.ub.shape[0] + 1))\
@@ -168,6 +148,8 @@ class Portfolio:
             matrix[r + self.lb.shape[0],  r + 2 * self.lb.shape[0]] = 1    # for the surplus variable
         return matrix
 
+    ##################          OUTPUT METHODS            ################
+
     def print_stats(self):
         print('Portfolio data:')
         print(f' - assets: {self.tickers}')
@@ -176,37 +158,6 @@ class Portfolio:
         print(f' - portfolio standard deviation (risk): {self.compute_portfolio_std():.4f}')
         print(f' - portfolio current expected return: {np.sum(self.compute_portfolio_expected_return()):.4f}')
 
-        # print(f'Daily returns: \n{self.compute_daily_returns()}')
+        # print(f'Daily returns: \n{self.compute_returns()}')
         # print(f'Daily portfolio expected returns: \n{self.compute_portfolio_daily_expected_return()}')
-        # print(f'Daily returns mean: \n{self.compute_daily_returns_mean()}')
-
-class CLA(Portfolio):
-
-    def __init__(self, tickers, lower, upper, start_date, end_date) -> None:
-        """
-        Initializes a CLA instance
-        """
-        super().__init__(tickers, lower, upper, start_date, end_date)
-
-        # For the Constrained Optimization problem
-        self.lambdas = []
-        self.etas = []
-
-
-    def solve(self):
-        """
-        Solving method for the COP. Such problem in our context consists in
-        a optimization procedure where we want to optimize an utility function.
-        For example, if we want the maximum expected return we would write:
-                max     expected return on the portfolio \\
-                where   risk_tolerance -> infinity \\
-                s.t.    weights.T @ 1 = weights \\
-                        A @ weights = b \\
-                        weigths >= lb \\
-                        weigths <= ub
-        Such problems could be solved by a general linear programming algorithm.
-        """
-        pass
-
-    # def to_standard_form():
-    #     pass
+        # print(f'Daily returns mean: \n{self.compute_returns_mean()}')
