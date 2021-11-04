@@ -16,7 +16,8 @@ class Simplex:
                 , c: np.array
                 , A: np.array
                 , b: np.array
-                , max=True):
+                , max=True
+                , verbose=False) -> None:
         """
         Initializes a Simplex session in the standard form
             max c.T @ X s.t. A @ X = b
@@ -48,6 +49,8 @@ class Simplex:
         self.iteration = 0
         # Flag for setting the maximization/problem
         self.maximization = max
+
+        self.verbose = verbose
 
     def create_tableau(self):
         """
@@ -115,7 +118,7 @@ class Simplex:
 
         return np.argmin(temp)
 
-    def get_pivot_position(self):
+    def get_pivot_position(self) -> tuple:
         """Computes the pivot position for the current tableau.
         """
         return self.__compute_pivot_row_position(), self.__compute_pivot_col_position()
@@ -147,7 +150,8 @@ class Simplex:
         This method modifies the tableau values.
         """
         row, col = self.get_pivot_position()
-        # print(f'Pivoting on row {row} and column {col}')
+        if self.verbose: print(f'pivot position at iteration {self.iteration}: ({row}, {col})')
+
 
         self.__sub_pivoting_1(row, col)
         self.__sub_pivoting_2(row, col)
@@ -175,12 +179,13 @@ class Simplex:
                     self.slack[col - self.n_vars] = 0
         self.objective.append(self.tableau[-1, -1])
 
-    def simplex(self) -> np.array:
+    def solve(self) -> np.array:
         """Main method of the class. It needs to be called in order to get
         an array of solutions. It iteratively search for a solution by applying a pivoting operation
         to the tableau until the current set of solutions is optimal.
         """
         self.create_tableau()
+        if self.verbose: print(f'tableau iteration {self.iteration}: \n{self.tableau}')
 
         while not self.__is_optimal():
             print(f'Objective function value: {self.tableau[-1, -1]}')
@@ -188,8 +193,11 @@ class Simplex:
 
             self.apply_pivoting()
             self.iteration += 1
+            if self.verbose: print(f'tableau iteration {self.iteration}: \n{self.tableau}')
 
         print(f'Objective function value: {self.tableau[-1, -1]}')
+        if self.verbose: print(f'tableau iteration {self.iteration}: \n{self.tableau}')
+
         self.extract_solution()
         return self.solutions
 

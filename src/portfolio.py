@@ -2,6 +2,7 @@ import data
 import pandas as pd
 import numpy as np
 import os
+from solvers import simplex
 from typing import List
 
 class Portfolio:
@@ -34,10 +35,14 @@ class Portfolio:
             self.ub = upper.reshape((upper.shape[0], 1))
 
         # WEIGHTS initialization
-        self.weights = np.ones((len(tickers), 1))
-        self.weights = self.weights / self.weights.sum(axis=0, keepdims=True)
+        # self.weights = np.ones((len(tickers), 1))
+        # self.weights = self.weights / self.weights.sum(axis=0, keepdims=True)
+
+        self.weights = []
 
         self.n_assets = len(tickers)
+
+        # ?
         self.portfolio_returns = []         # store portfolio returns
         self.portfolio_risks = []           # store portfolio volatility
 
@@ -55,7 +60,7 @@ class Portfolio:
         return df
 
     def compute_returns(self) -> pd.DataFrame:
-        """Compute the gain/loss on the portfolio over the fixed timeframe specified at initialization.
+        """Compute the percentized gain/loss on the portfolio over the fixed timeframe specified at initialization.
         We make a return as the percentage chenge in the closing price of the asset over the previous day's closing price.
         """
         close_prices = pd.DataFrame()
@@ -67,7 +72,7 @@ class Portfolio:
         """Compute the average return for each asset.
 
         This method will be useful for the optimization part. Following the definition of the
-        expected value we are computing the means of the individual assets instead of the entire portfolio.
+        expected value we are computing the means of the individual assets instead of the expected value of the entire portfolio.
         """
         return self.compute_returns().mean()
 
@@ -93,18 +98,20 @@ class Portfolio:
     ##################          OPTIMIZATION METHODS            ################
 
     def to_standard_form(self):
+        """
+        """
         matrix = np.zeros((self.lb.shape[0] + self.ub.shape[0] + 2, len(self.tickers) + self.lb.shape[0] + self.ub.shape[0] + 1))\
 
         self.__set_bounds_coeff(matrix)
-        self.__set_weights(matrix)
-        # self.__set_utility_function_1(matrix)
+        self.__set_full_investment(matrix)
+        self.__set_utility_function_1(matrix)
         return matrix
 
-    def __set_weights(self, matrix):
+    def __set_full_investment(self, matrix):
         """Set the FULL-INVESTMENT CONSTRAINT, it requires thath all the coefficients for the variables
         to be equal to 1.0.
         """
-        for c in range(self.weights.shape[0]):
+        for c in range(len(self.tickers)):
             matrix[-2, c] = 1
         matrix[-2, -1] = 1
 
@@ -114,49 +121,62 @@ class Portfolio:
             u = exp_p
         with exp_p the expected return of the portfolio.
         """
-        exp_p = self.compute_portfolio_expected_return().to_numpy()
-        print(self.weights.shape)
-        print(self.weights.T @ exp_p)
-
-    def __set_utility_function_2(self, matrix):
-        """Set the utility function as specified by the MINIMUM RISK PORTFOLIO where
-        the utility function is the following:
-            u = std_p
-        with std_p the standard deviation (the risk) of the portfolio.
-        """
-        pass
+        individual_exp = self.compute_individual_expected_returns().to_numpy()
+        print(individual_exp)
+        for i in range(self.n_assets):
+            matrix[-1, i] = individual_exp[i]
 
     def __set_bounds_coeff(self, matrix):
         """Set the constants for the upper and lower bound. We already know that in a standard allocation problem
         the bound equations are in the following form:
-            - w0 >= lb0, w1 >= lb1, ..., wn >= lbn
-            - w0 <= ub0, w1 <= ub1, ..., wn <= ubn
+            - w0 >= lb0, w1 >= lb1, ..., wn >= lbn -> wi + si = lb1
+            - w0 <= ub0, w1 <= ub1, ..., wn <= ubn -> wi - si = ubi -> -wi + si = -ubi
         """
         for r in range(self.lb.shape[0]):
-            # The first m rows are for the lower bound (<=)
+            # The first m rows are for the upper bound (<=)
             # The constants are by definition all nonnegative!
             # To convert into equation we need to add a SLACK variable
-            matrix[r, -1] = self.lb[r]
+            matrix[r, -1] = self.ub[r]
             matrix[r,  r] = 1   # for the variable
-            matrix[r,  r + self.lb.shape[0]] = 1   # for the slack variable
+            matrix[r,  r + self.ub.shape[0]] = 1   # for the slack variable
 
-            # The last m rows are for the upper bound (>=)
-            # Since the RHS is always nonnegative we do not have to multiply by -1
-            # To convert into equation we need to subtract a SURPLUS variable
-            matrix[r + self.lb.shape[0], -1] = self.ub[r]
-            matrix[r + self.lb.shape[0],  r] = 1    # for the variable
-            matrix[r + self.lb.shape[0],  r + 2 * self.lb.shape[0]] = 1    # for the surplus variable
+            # The last m rows are for the lower bound (>=)
+            # We assume that all the equations are <= then we need to multiply it by -1
+            matrix[r + self.ub.shape[0], -1] = self.lb[r]
+            matrix[r + self.ub.shape[0],  r] = -1    # for the variable
+            matrix[r + self.ub.shape[0],  r + 2 * self.ub.shape[0]] = 1    # for the slack variable
         return matrix
+
+    def __split_matrix(self):
+        matrix = self.to_standard_form()
+        A = matrix[:-1, :-1]
+        b = matrix[:-1, -1]
+        c = matrix[-1, :-1]
+        return c, A, b
+
+    def solve_simplex(self):
+        """Tries to solve the portfolio problem of the maximum expected return
+        by using a simplex solver.
+        """
+        c, A, b = self.__split_matrix()
+        # print(c, A, b)
+        slex = simplex.Simplex(c, A, b, max=True, verbose=True)
+        slex.solve()
+        slex.print_solution()
+        slex.plot_objective_function()
+        self.weights = slex.solutions
 
     ##################          OUTPUT METHODS            ################
 
     def print_stats(self):
         print('Portfolio data:')
         print(f' - assets: {self.tickers}')
-        print(f' - assets participations: {list(self.weights[:, 0])}')
-        print(f' - portfolio variance: {self.compute_portfolio_variance():.4f}')
-        print(f' - portfolio standard deviation (risk): {self.compute_portfolio_std():.4f}')
-        print(f' - portfolio current expected return: {np.sum(self.compute_portfolio_expected_return()):.4f}')
+        print(f' - starting assets participations: {list(self.weights)}')
+        print(f' - assets participations (optimized): {list(self.weights)}')
+        # print(f' - portfolio variance: {self.compute_portfolio_variance():.4f}')
+        # print(f' - portfolio standard deviation (risk): {self.compute_portfolio_std():.4f}')
+        print(f' - portfolio current expected return: {np.mean(self.compute_portfolio_return()):.4f}')
+        print(f' - portfolio current expected return: \n{self.compute_portfolio_return()}')
 
         # print(f'Daily returns: \n{self.compute_returns()}')
         # print(f'Daily portfolio expected returns: \n{self.compute_portfolio_daily_expected_return()}')
