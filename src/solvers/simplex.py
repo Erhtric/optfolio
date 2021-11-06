@@ -47,7 +47,7 @@ class Simplex:
         self.tableau = []
         # Number of Simplex iterations, 0 is the starting point
         self.iteration = 0
-        # Flag for setting the maximization/problem
+        # Flag for setting the maximization/minimization problem
         self.maximization = max
 
         self.verbose = verbose
@@ -59,23 +59,29 @@ class Simplex:
         then the slack variables.
 
         tableau\n
-        = [ A b
-            c 0]
-        where z is the coefficient relative to objective function
+        = [ A [0] b
+            c  1  0]
+        where c is the vector of the coefficients of the objective function
         """
-        Ab = np.array(
-                [np.concatenate((p, b)) for p, b in zip(self.bounds_params, self.constants)], dtype=np.float64)
+        Ab = np.array([np.concatenate((p, [0], b)) for p, b in zip(self.bounds_params, self.constants)], dtype=np.float64)
         # the objective function should be correctly negated (based on the type of optimization we are doing)
-        z = np.append(((-1) * self.maximization) * self.of_params, 0).reshape((Ab.shape[1], 1))
+        if self.maximization:
+            z = np.append(-self.of_params, [1, 0]).reshape((Ab.shape[1], 1))
+        else:
+            z = np.append(self.of_params, [1, 0]).reshape((Ab.shape[1], 1))
         self.tableau = np.concatenate((Ab, z.T), axis = 0)
 
     def __is_optimal(self) -> bool:
-        """A solution is optimal if in every term in the objective function is non-negative.
-        This method perform a simple check on the last row of the tableau if there an element
-        which is < 0.
+        """A solution is optimal, in a maximization problem, if in every term in the objective function is non-negative
+        (in a minimization problem, non-positive).
         """
-        c = self.tableau[-1, :-1]
-        return all(val >= 0 for val in c)
+        c = self.tableau[-1, :-2]
+        flag = False
+        if self.maximization:
+            flag = all(val >= 0 for val in c)
+        else:
+            flag = all(val <= 0 for val in c)
+        return flag
 
     def __is_basic(self, idx) -> bool:
         """Checks if the column at index idx is a unit-column, then the variable associated
@@ -83,15 +89,18 @@ class Simplex:
         A unit column is a vector which has one and exactly one value equal to one and the others
         are equal to zero.
         """
-        return [True if el==0 else False for el in self.tableau[:, idx]].count(True) == self.tableau[:, idx].shape[0] - 1 and np.sum(self.tableau[:, idx]) == 1
+        return [True if el==0 else False for el in self.tableau[:, idx]].count(True) == \
+                    self.tableau[:, idx].shape[0] - 1 and np.sum(self.tableau[:, idx]) == 1
 
     def __compute_pivot_col_position(self) -> int:
         """This method simply computes the column index for the pivot in the tableau.
         If a solution is non optimal, then one or more terms in the last row of the tableau
-        are negative, this is done by taking the minimum value among those values.
+        are negative, this is done by taking the minimum value among those values. The
+        opposite holds if we are taking a minimization problem.
         """
         z = self.tableau[-1]
-        return np.argmin(z, axis=0) if np.min(z) < 0 else None
+        idx = np.argmin(z, axis=0) if self.maximization else np.argmax(z, axis=0)
+        return idx
 
     def __compute_pivot_row_position(self) -> int:
         """This method computes the row index for the pivot in the tableau.
@@ -150,7 +159,7 @@ class Simplex:
         This method modifies the tableau values.
         """
         row, col = self.get_pivot_position()
-        if self.verbose: print(f'pivot position at iteration {self.iteration}: ({row}, {col})')
+        if self.verbose: print(f'Pivot position at iteration {self.iteration}: ({row}, {col})')
 
 
         self.__sub_pivoting_1(row, col)
@@ -161,7 +170,7 @@ class Simplex:
         A solution is composed by the non-basic variables' coefficients that appear in the first and the
         last optimal tableau and its relative constant values.
         """
-        for col in range(self.tableau.shape[1] - 1):
+        for col in range(self.tableau.shape[1] - 2):
             if self.__is_basic(col):
                 row_idx = np.argmax(self.tableau[:, col])
                 if col < self.n_vars:
@@ -196,7 +205,7 @@ class Simplex:
             if self.verbose: print(f'tableau iteration {self.iteration}: \n{self.tableau}')
 
         print(f'Objective function value: {self.tableau[-1, -1]}')
-        if self.verbose: print(f'tableau iteration {self.iteration}: \n{self.tableau}')
+        if self.verbose: print(f'tableau iteration {self.iteration+1}: \n{self.tableau}')
 
         self.extract_solution()
         return self.solutions

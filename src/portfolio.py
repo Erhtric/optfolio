@@ -142,9 +142,9 @@ class Portfolio:
 
             # The last m rows are for the lower bound (>=)
             # We assume that all the equations are <= then we need to multiply it by -1
-            matrix[r + self.ub.shape[0], -1] = self.lb[r]
+            matrix[r + self.ub.shape[0], -1] = -self.lb[r]
             matrix[r + self.ub.shape[0],  r] = -1    # for the variable
-            matrix[r + self.ub.shape[0],  r + 2 * self.ub.shape[0]] = 1    # for the slack variable
+            matrix[r + self.ub.shape[0],  r + 2 * self.ub.shape[0]] = 1    # for the surplus variable
         return matrix
 
     def __split_matrix(self):
