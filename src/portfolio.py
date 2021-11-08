@@ -39,12 +39,7 @@ class Portfolio:
         # self.weights = self.weights / self.weights.sum(axis=0, keepdims=True)
 
         self.weights = []
-
         self.n_assets = len(tickers)
-
-        # ?
-        self.portfolio_returns = []         # store portfolio returns
-        self.portfolio_risks = []           # store portfolio volatility
 
     ##################          PORTFOLIO METHODS            ################
 
@@ -95,16 +90,18 @@ class Portfolio:
         """Computes the portfolio's standard deviation, also called the volatily of the portfolio"""
         return np.sqrt(self.compute_portfolio_variance())
 
-    ##################          OPTIMIZATION METHODS            ################
+    ##################          OPTIMIZATION METHODS (SIMPLEX) - LP         ################
+    # In this part there are the methods to optimize the linear portfolio problem of the maximum expected return
+    # Obviously it will not produce satisfactory results.
 
     def to_standard_form(self):
-        """
+        """Produces a matrix in the standard form ()
         """
         matrix = np.zeros((self.lb.shape[0] + self.ub.shape[0] + 2, len(self.tickers) + self.lb.shape[0] + self.ub.shape[0] + 1))\
 
         self.__set_bounds_coeff(matrix)
         self.__set_full_investment(matrix)
-        self.__set_utility_function_1(matrix)
+        self.__set_utility_function(matrix)
         return matrix
 
     def __set_full_investment(self, matrix):
@@ -112,17 +109,16 @@ class Portfolio:
         to be equal to 1.0.
         """
         for c in range(len(self.tickers)):
-            matrix[-2, c] = 1
-        matrix[-2, -1] = 1
+            matrix[-2, c] = 1.0
+        matrix[-2, -1] = 1.0
 
-    def __set_utility_function_1(self, matrix):
+    def __set_utility_function(self, matrix):
         """Set the utility function as specified by the MAXIMUM EXPECTED RETURN PORTFOLIO where
         the utility function is the following:
             u = exp_p
         with exp_p the expected return of the portfolio.
         """
         individual_exp = self.compute_individual_expected_returns().to_numpy()
-        print(individual_exp)
         for i in range(self.n_assets):
             matrix[-1, i] = individual_exp[i]
 
@@ -138,35 +134,57 @@ class Portfolio:
             # To convert into equation we need to add a SLACK variable
             matrix[r, -1] = self.ub[r]
             matrix[r,  r] = 1   # for the variable
-            matrix[r,  r + self.ub.shape[0]] = 1   # for the slack variable
+            matrix[r,  r + self.ub.shape[0]] = 1.0   # for the slack variable
 
             # The last m rows are for the lower bound (>=)
             # We assume that all the equations are <= then we need to multiply it by -1
             matrix[r + self.ub.shape[0], -1] = -self.lb[r]
-            matrix[r + self.ub.shape[0],  r] = -1    # for the variable
-            matrix[r + self.ub.shape[0],  r + 2 * self.ub.shape[0]] = 1    # for the surplus variable
+            matrix[r + self.ub.shape[0],  r] = -1.0    # for the variable
+            matrix[r + self.ub.shape[0],  r + 2 * self.ub.shape[0]] = 1.0    # for the surplus variable
         return matrix
 
-    def __split_matrix(self):
-        matrix = self.to_standard_form()
+    def split_matrix(self):
+        matrix = self.to_standard_form_slack()
         A = matrix[:-1, :-1]
         b = matrix[:-1, -1]
         c = matrix[-1, :-1]
         return c, A, b
 
-    def solve_simplex(self):
+    def split_matrix_qp(self):
+        # TODO
+        pass
+
+    def solve_simplex(self, verbose=False):
         """Tries to solve the portfolio problem of the maximum expected return
         by using a simplex solver.
         """
         c, A, b = self.__split_matrix()
         # print(c, A, b)
-        slex = simplex.Simplex(c, A, b, max=True, verbose=True)
+        slex = simplex.Simplex(c, A, b, verbose=verbose)
         slex.solve()
         slex.print_solution()
         slex.plot_objective_function()
         self.weights = slex.solutions
 
-    ##################          OUTPUT METHODS            ################
+    ##################          OPTIMIZATION METHODS (INTERIOR POINT) - QP         ################
+
+    def set_matrix_qp(self):
+        """It prepare the three matrices for the interior point algorithm, what differs from before is that
+        now we do not have any slack variables."""
+        b = np.concatenate((self.lb, self.ub))
+        b = np.append(b, 1.0)
+        S = self.compute_returns_covariance_matrix().to_numpy()
+
+        A = np.zeros((self.lb.shape[0] + self.ub.shape[0] + 1, len(self.tickers)))
+        for r in range(self.lb.shape[0]):
+            A[r, r] = 1.0
+            A[r + self.ub.shape[0], r] = 1.0
+
+        for c in range(len(self.tickers)):
+            A[-1, c] = 1.0
+        return S, A, b
+
+    ##################          OUTPUT METHODS            ##########################################
 
     def print_stats(self):
         print('Portfolio data:')

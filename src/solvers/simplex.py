@@ -4,6 +4,7 @@ THIS FILE CONTAINS THE METHODS FOR THE SIMPLEX ALGORITHM EXECUTION.
 import matplotlib
 import numpy as np
 from matplotlib import pyplot as plt
+from warnings import warn
 
 class Simplex:
     """
@@ -16,8 +17,8 @@ class Simplex:
                 , c: np.array
                 , A: np.array
                 , b: np.array
-                , max=True
-                , verbose=False) -> None:
+                , verbose=False
+                , max_iteration=1000) -> None:
         """
         Initializes a Simplex session in the standard form
             max c.T @ X s.t. A @ X = b
@@ -36,21 +37,25 @@ class Simplex:
 
         # Array of solutions
         # since the tableau is ordered from left to right we need only the number of original variables in the problem
+        self.tableau = []
         self.n_vars = np.count_nonzero(self.of_params)
         self.solutions = np.zeros(self.n_vars)
         self.slack = np.zeros(self.constants.shape[0])
+        # To apply the Cunningham's rule (or round-robin rule)
+        # We create a random cyclic ordering for choosing the variable that will enter the basis
+        self.variable_ordering = np.arange(self.n_vars)
+        np.random.shuffle(self.variable_ordering)
+        self.order_count = 0
 
         # value of the objective function
         self.objective = []
-
-        # USED FOR INTERNAL USE: it is the internal tableau built with the relative method
-        self.tableau = []
         # Number of Simplex iterations, 0 is the starting point
         self.iteration = 0
-        # Flag for setting the maximization/minimization problem
-        self.maximization = max
-
         self.verbose = verbose
+        self.max_iteration = max_iteration
+
+        self.dual_t = None
+        self.dual_y = None
 
     def create_tableau(self):
         """
@@ -65,10 +70,7 @@ class Simplex:
         """
         Ab = np.array([np.concatenate((p, [0], b)) for p, b in zip(self.bounds_params, self.constants)], dtype=np.float64)
         # the objective function should be correctly negated (based on the type of optimization we are doing)
-        if self.maximization:
-            z = np.append(-self.of_params, [1, 0]).reshape((Ab.shape[1], 1))
-        else:
-            z = np.append(self.of_params, [1, 0]).reshape((Ab.shape[1], 1))
+        z = np.append(self.of_params, [1, 0]).reshape((Ab.shape[1], 1))
         self.tableau = np.concatenate((Ab, z.T), axis = 0)
 
     def __is_optimal(self) -> bool:
@@ -76,12 +78,7 @@ class Simplex:
         (in a minimization problem, non-positive).
         """
         c = self.tableau[-1, :-2]
-        flag = False
-        if self.maximization:
-            flag = all(val >= 0 for val in c)
-        else:
-            flag = all(val <= 0 for val in c)
-        return flag
+        return all(val <= 0 for val in c)
 
     def __is_basic(self, idx) -> bool:
         """Checks if the column at index idx is a unit-column, then the variable associated
@@ -92,23 +89,42 @@ class Simplex:
         return [True if el==0 else False for el in self.tableau[:, idx]].count(True) == \
                     self.tableau[:, idx].shape[0] - 1 and np.sum(self.tableau[:, idx]) == 1
 
-    def __compute_pivot_col_position(self) -> int:
+    def __nonbasic_var_indexes(self) -> list:
+        """Return the list of indexes where each column is a unit-column"""
+        indexes = []
+        for c in range(self.tableau.shape[1] - 2):
+            if not self.__is_basic(c):
+                indexes.append(c)
+        return indexes
+
+    def __compute_pivot_col_position(self, rule) -> int:
         """This method simply computes the column index for the pivot in the tableau.
         If a solution is non optimal, then one or more terms in the last row of the tableau
         are negative, this is done by taking the minimum value among those values. The
         opposite holds if we are taking a minimization problem.
         """
-        z = self.tableau[-1]
-        idx = np.argmin(z, axis=0) if self.maximization else np.argmax(z, axis=0)
+        nonbasic = self.tableau[-1, self.__nonbasic_var_indexes()]
+        idx = None
+
+        # Pivoting rule, to avoid degeneracy
+        if rule == 'largest':
+            #idx = np.argmin(z, axis=0) if self.maximization else np.argmin(z, axis=0)
+            idx = np.argmax(nonbasic, axis=0)
+        elif rule == 'cunningham':
+            idx = self.variable_ordering[self.order_count]
+            self.order_count = (self.order_count + 1) % self.n_vars           # following Cunningham's rule
+        elif rule == 'random':
+            idx = self.variable_ordering[np.random.randint(self.n_vars)]
         return idx
 
     def __compute_pivot_row_position(self) -> int:
-        """This method computes the row index for the pivot in the tableau.
+        """This method computes the row index for the pivot in the tableau by performing
+        the min-ratio test.
         If a solution is non optimal, and given the pivoting column the index for the
         row will be the minimum value obtained as the result from dividing the corresponding
         constant by the target element indicized by the row pivoting index.
         """
-        col_idx = self.__compute_pivot_col_position()
+        col_idx = self.__compute_pivot_col_position('largest')
         A = self.tableau[:-1, :]
         temp = []
         for row in A:
@@ -125,17 +141,19 @@ class Simplex:
         if all([val == np.inf for val in temp]):
             raise Exception("STOPPED EXECUTION: LINEAR PROGRAM UNBOUNDED")
 
+        if self.verbose: print(f'Min-ratios list: {temp}')
         return np.argmin(temp)
 
     def get_pivot_position(self) -> tuple:
         """Computes the pivot position for the current tableau.
         """
-        return self.__compute_pivot_row_position(), self.__compute_pivot_col_position()
+        return self.__compute_pivot_row_position(), self.__compute_pivot_col_position('largest')
 
     def __sub_pivoting_1(self, row_idx, col_idx):
         """Part 1 of the pivot-changing part: the goal of this
         method is to set the pivot to 1 by multiplying the corresponding row by a certain factor"""
         pivot = self.tableau[row_idx, col_idx]
+        if pivot == 0: warn('Degeneracy')
         self.tableau[row_idx, :] = self.tableau[row_idx, :] / pivot
         # print(f'Dividing by {pivot}')
 
@@ -159,8 +177,9 @@ class Simplex:
         This method modifies the tableau values.
         """
         row, col = self.get_pivot_position()
-        if self.verbose: print(f'Pivot position at iteration {self.iteration}: ({row}, {col})')
-
+        if self.verbose:
+            #print(f'Pivot position at iteration {self.iteration}: ({row}, {col})')
+            print(f'Variable x_{col} enter the basis, Slack variable s_{row} leave the basis, pivoting...')
 
         self.__sub_pivoting_1(row, col)
         self.__sub_pivoting_2(row, col)
@@ -188,6 +207,11 @@ class Simplex:
                     self.slack[col - self.n_vars] = 0
         self.objective.append(self.tableau[-1, -1])
 
+    def __extract_dual_solution(self):
+        z = self.tableau[-1, :]
+        self.dual_t = z[:self.n_vars]
+        self.dual_y = z[self.n_vars:-2]
+
     def solve(self) -> np.array:
         """Main method of the class. It needs to be called in order to get
         an array of solutions. It iteratively search for a solution by applying a pivoting operation
@@ -196,28 +220,43 @@ class Simplex:
         self.create_tableau()
         if self.verbose: print(f'tableau iteration {self.iteration}: \n{self.tableau}')
 
-        while not self.__is_optimal():
-            print(f'Objective function value: {self.tableau[-1, -1]}')
+        while not self.__is_optimal() and self.iteration < self.max_iteration:
+            if self.verbose: print(f'Objective function value: {self.tableau[-1, -1]}')
             self.objective.append(self.tableau[-1, -1])
 
             self.apply_pivoting()
             self.iteration += 1
-            if self.verbose: print(f'tableau iteration {self.iteration}: \n{self.tableau}')
+            if self.verbose: print(f'Tableau iteration {self.iteration}: \n{self.tableau}')
 
-        print(f'Objective function value: {self.tableau[-1, -1]}')
-        if self.verbose: print(f'tableau iteration {self.iteration+1}: \n{self.tableau}')
+        if self.verbose:
+            print(f'Objective function value: {self.tableau[-1, -1]}')
+            print(f'Tableau iteration {self.iteration+1}: \n{self.tableau}')
 
         self.extract_solution()
+        self.__extract_dual_solution()
         return self.solutions
 
     def print_solution(self):
         if self.__is_optimal():
             print(f"Optimal solution found in {self.iteration} iterations")
+            print('The feasible primal program is:')
             print(f"Solution variables: \t{self.solutions}")
             print(f"Slack variables: \t{self.slack}")
+            print(f'The primal objective function has value: {self.tableau[-1, -1]}')
 
-    def print_tableau(self):
-        print(f'Tableau: \n{self.tableau}')
+            if self.verbose:
+                print()
+                print('The feasible dual program is:')
+                print(f"Solution dual variables: {self.dual_t}")
+                print(f"Slack dual variables: \t{self.dual_y}")
+                print(f'Complementary slackness conditions satisfied: {not bool(self.dual_t.T @ self.solutions and self.dual_y.T @ self.slack)}')
+        else:
+            print(f"Non-Optimal solution found in {self.iteration} iterations")
+            print('The feasible primal program is:')
+            print(f"Solution variables: \t{self.solutions}")
+            print(f"Slack variables: \t{self.slack}")
+            print(f'The primal objective function has value: {self.tableau[-1, -1]}')
+
 
     def plot_objective_function(self):
         matplotlib.use('TkAgg')
