@@ -25,7 +25,7 @@ class IntPoint:
             - S is a symmetric positive semi-definite matrix
             - A is the matrix of coefficients for the constraint equations
             - b is the vector of constants on the RHS of the constraint equations
-        This code follows the algorithm presented in Nocedal & Wright (2006)[Numerical Optimization], the 
+        This code follows the algorithm presented in Nocedal & Wright (2006)[Numerical Optimization], the
         "Predictor-Corrector Algorithm for QP"
         """
         self.S = S
@@ -33,6 +33,10 @@ class IntPoint:
         self.b = b.reshape((1, b.shape[0]))
         self.c = c
         self.const = const
+
+        self.solution   = []
+        self.slacks     = []
+        self.lambdas    = []
 
         self.n_vars = self.A.shape[1]
         self.n_eq   = self.A.shape[0]
@@ -116,11 +120,11 @@ class IntPoint:
         tau = 1 - 0.5**(self.iteration + 1)
 
         step_primal = 1.0
-        while y_k + step_primal * dy < (1 - tau) * y_k and step_primal > 0:
+        while any(y_k + step_primal * dy < (1 - tau) * y_k) and step_primal > 0:
             step_primal -= 0.05
 
         step_dual = 1.0
-        while lm_k + step_dual * dlm < (1 - tau) * lm_k and step_dual > 0:
+        while any(lm_k + step_dual * dlm < (1 - tau) * lm_k) and step_dual > 0:
             step_dual -= 0.05
         return np.min([step_primal, step_dual])
 
@@ -166,7 +170,14 @@ class IntPoint:
             lm_k += step * dlm
 
             var = np.concatenate([dx, dy, dlm])
-            if np.linalg.norm(var) < self.epsilon:
-                raise Exception(f'PRECISION REACHED, magnitude: {var}')
+            # if np.linalg.norm(var) < self.epsilon:
+            #     raise Exception(f'PRECISION REACHED, magnitude: {np.linalg.norm(var)}')
+
+            if any(abs(var) < self.epsilon * np.ones(self.n_vars + 2*self.n_eq)):
+                raise Exception(f'PRECISION REACHED, magnitude: \n{var}')
 
             self.iteration += 1
+
+            self.solution = x_k
+            self.slacks = y_k
+            self.lambdas = lm_k
