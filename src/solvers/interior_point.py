@@ -14,8 +14,8 @@ class IntPoint:
                 , b: np.array
                 , c: np.array
                 , const=0.0
-                , max_iteration=1000
-                , epsilon = 1.0e-5
+                , max_iteration=2000
+                , epsilon=1.0e-5
                 , max=True
                 , verbose=False) -> None:
         """
@@ -25,18 +25,13 @@ class IntPoint:
             - S is a symmetric positive semi-definite matrix
             - A is the matrix of coefficients for the constraint equations
             - b is the vector of constants on the RHS of the constraint equations
-        This code follows the algorithm presented in Nocedal & Wright (2006)[Numerical Optimization], the
-        "Predictor-Corrector Algorithm for QP"
+        This code follows the algorithm presented in Nocedal & Wright (2006)[Numerical Optimization]
         """
         self.S = S
         self.A = A
         self.b = b.reshape((1, b.shape[0]))
         self.c = c
         self.const = const
-
-        self.solution   = []
-        self.slacks     = []
-        self.lambdas    = []
 
         self.n_vars = self.A.shape[1]
         self.n_eq   = self.A.shape[0]
@@ -46,12 +41,18 @@ class IntPoint:
         self.max_iteration  = max_iteration
         self.epsilon        = epsilon          # for the tolerance
 
+        # History of values
+        self.fobj           = []
+        self.hsol           = []
+        self.hslack         = []
+        self.hlambdas       = []
+        self.steps          = [0]
+
         # Initialization variables: user-defined starting point
-        # TODO generate it randomically and check if respect the constraints
         self.x_0  = np.ones(self.n_vars)
         # Slack and Lambdas must be positive
-        self.y_0  = 0.3 * np.ones(self.n_eq)        # slack
-        self.lm_0 = 0.6 * np.ones(self.n_eq)        # langrangian multiplier
+        self.y_0  = 1 * np.ones(self.n_eq)        # slack
+        self.lm_0 = 2 * np.ones(self.n_eq)        # langrangian multiplier
 
     def compute_mu(self, y_k, lm_k):
         return (y_k.T @ lm_k) / self.n_eq
@@ -72,7 +73,7 @@ class IntPoint:
         rd = self.S @ x_k - self.A.T @ lm_k + self.c.T
         rp = self.A @ x_k - y_k - self.b
         mu = self.compute_mu(y_k, lm_k)         # the complementarity measure
-        e = np.zeros((self.n_eq))
+        e = np.ones((self.n_eq))
 
         # Left hand side of the linear system
         LHS = np.block([
@@ -129,7 +130,7 @@ class IntPoint:
         return np.min([step_primal, step_dual])
 
     def solve(self):
-        """Predictor
+        """This method solve the minimization problem by applying the predictor-corrector algorithm.
         """
 
         # Initialization step
@@ -144,10 +145,14 @@ class IntPoint:
         y_k = np.maximum(1, np.absolute(dy_aff + self.y_0))            # max and absolute values must be applied component-wise
         lm_k = np.maximum(1, np.absolute(dlm_aff + self.lm_0))
 
+        self.hsol.append(x_k)
+        self.hslack.append(y_k)
+        self.hlambdas.append(lm_k)
+
         while self.iteration < self.max_iteration:
 
             # Perform an affine step
-            dx_aff, dy_aff, dlm_aff = self.corrector_step(x_k, y_k, lm_k, Gamma_aff, Lambda_aff, sigma=0)
+            _, dy_aff, dlm_aff = self.corrector_step(x_k, y_k, lm_k, Gamma_aff, Lambda_aff, sigma=0)
             mu = self.compute_mu(y_k, lm_k)
 
             step_aff = self.compute_affine_step_size(y_k, lm_k, dy_aff, dlm_aff)
@@ -165,19 +170,31 @@ class IntPoint:
             step = self.compute_primal_dual_step_size(y_k, lm_k, dy, dlm)
 
             # Update step
+            self.iteration += 1
             x_k += step * dx
             y_k += step * dy
             lm_k += step * dlm
+
+            self.hsol.append(x_k)
+            self.hslack.append(y_k)
+            self.hlambdas.append(lm_k)
+            self.steps.append(step)
+
 
             var = np.concatenate([dx, dy, dlm])
             # if np.linalg.norm(var) < self.epsilon:
             #     raise Exception(f'PRECISION REACHED, magnitude: {np.linalg.norm(var)}')
 
             if any(abs(var) < self.epsilon * np.ones(self.n_vars + 2*self.n_eq)):
-                raise Exception(f'PRECISION REACHED, magnitude: \n{var}')
+               if self.verbose: print(f'PRECISION REACHED, array: \n{var}')
+               break
 
-            self.iteration += 1
+    def objective_function(self, x):
+        """The objective function of the minimization problem is:
+        x^T S x + x^T c + const
+        """
+        return x @ self.S @ x + self.c.T @ x + self.const
 
-            self.solution = x_k
-            self.slacks = y_k
-            self.lambdas = lm_k
+    def print_solution(self):
+        print(f'Minimum found in {self.iteration} iterations at point: \n{self.hsol[-1]}')
+        print(f'Objective function value: {self.objective_function(self.hsol[-1])}')

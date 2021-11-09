@@ -4,6 +4,9 @@ from solvers.interior_point import IntPoint
 from portfolio import Portfolio
 #np.set_printoptions( threshold=20, edgeitems=10, linewidth=140, formatter = dict( float = lambda x: "%.4g" % x ))  # float arrays %.3g
 
+def risk_function(self, cov, x):
+    return x.T @ cov @ x
+
 if __name__ == "__main__":
 
     """c = np.array([4, 1, 4, 0, 0, 0])
@@ -50,5 +53,10 @@ if __name__ == "__main__":
     n = A.shape[1]
     m = A.shape[0]
 
-    ip = IntPoint(G, A, b, c, max_iteration=100)
+    ip = IntPoint(G, A, b, c, max_iteration=100, verbose=False)
     ip.solve()
+    ip.print_solution()
+    # print(ip.hsol)
+    # print(ip.hslack)
+    # print(ip.hlambdas)
+    # print(ip.steps)
