@@ -41,11 +41,14 @@ if __name__ == "__main__":
     S, A, b = pf.set_matrix_qp()
     weights = np.array([0.5, 0.5])
 
+    G = np.array([[1,-1],[-1,2]])
+    c = np.array([-2, -6])
+    const = 0
+    A = np.array([[-1/2,-1/2],[1,-2],[1,0],[0,1]])
+    b = np.array([-1,-2,0,0])
+
     n = A.shape[1]
     m = A.shape[0]
-    init_x = np.ones(n)
-    init_y = 1*np.ones(m)
-    init_l = 2*np.ones(m)
 
-    ip = IntPoint(S, A, b, 0)
-    ip.corrector_step(init_x, init_y, init_l, np.zeros((m,m)), np.zeros((m,m)), 0)
+    ip = IntPoint(G, A, b, c, max_iteration=100)
+    ip.solve()
