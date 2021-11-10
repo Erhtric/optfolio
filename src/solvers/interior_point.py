@@ -161,7 +161,6 @@ class IntPoint:
             # Set the centering parameter
             sigma = (mu_aff / mu)**3
 
-            # ?
             Gamma_aff = np.diag(dy_aff)
             Lambda_aff = np.diag(dlm_aff)
 
