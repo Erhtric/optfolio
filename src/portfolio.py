@@ -84,7 +84,7 @@ class Portfolio:
     def compute_portfolio_variance(self) -> np.float64:
         """Compute the total portfolio's variance.
         """
-        return (self.weights.T @ self.compute_returns_covariance_matrix().to_numpy() @ self.weights)[0, 0]
+        return (self.weights.T @ self.compute_returns_covariance_matrix().to_numpy() @ self.weights)
 
     def compute_portfolio_std(self) -> np.float64:
         """Computes the portfolio's standard deviation, also called the volatily of the portfolio"""
@@ -94,10 +94,17 @@ class Portfolio:
     # In this part there are the methods to optimize the linear portfolio problem of the maximum expected return
     # Obviously it will not produce satisfactory results.
 
-    def to_standard_form(self):
-        """Produces a matrix in the standard form ()
+    def preprocess_matrix(self):
+        """Produces a matrix in the standard form. Below an example for 2 assets:
+        [1 0 1 0  0 0  0 0 ub1]
+        [0 1 0 1  0 0  0 0 ub2]
+        [1 0 0 0 -1 1  0 0 lb1]
+        [0 1 0 0  0 0 -1 1 lb2]
+        [1 1 0 0  0 0  0 0   1]
+        [mu mu 0  0 0  0 0 0 0]
+        where slack variables has been introduced and variables which are not sign-constrained are replaced by differences (x1 = x2 - x3).
         """
-        matrix = np.zeros((self.lb.shape[0] + self.ub.shape[0] + 2, len(self.tickers) + self.lb.shape[0] + self.ub.shape[0] + 1))\
+        matrix = np.zeros((self.lb.shape[0] + self.ub.shape[0] + 2, self.n_assets + self.lb.shape[0] + 2 * self.ub.shape[0] + 1))\
 
         self.__set_bounds_coeff(matrix)
         self.__set_full_investment(matrix)
@@ -128,42 +135,41 @@ class Portfolio:
             - w0 >= lb0, w1 >= lb1, ..., wn >= lbn -> wi + si = lb1
             - w0 <= ub0, w1 <= ub1, ..., wn <= ubn -> wi - si = ubi -> -wi + si = -ubi
         """
-        for r in range(self.lb.shape[0]):
-            # The first m rows are for the upper bound (<=)
-            # The constants are by definition all nonnegative!
-            # To convert into equation we need to add a SLACK variable
-            matrix[r, -1] = self.ub[r]
-            matrix[r,  r] = 1   # for the variable
-            matrix[r,  r + self.ub.shape[0]] = 1.0   # for the slack variable
-
-            # The last m rows are for the lower bound (>=)
-            # We assume that all the equations are <= then we need to multiply it by -1
-            matrix[r + self.ub.shape[0], -1] = -self.lb[r]
-            matrix[r + self.ub.shape[0],  r] = -1.0    # for the variable
-            matrix[r + self.ub.shape[0],  r + 2 * self.ub.shape[0]] = 1.0    # for the surplus variable
+        for r in range(2 * self.lb.shape[0]):
+            if r < self.lb.shape[0]:
+                # The first lb rows are for the upper bound (<=)
+                # The constants are by definition all nonnegative!
+                # To convert into equation we need to add a SLACK variable
+                matrix[r,  r] = 1                                   # for the variable
+                matrix[r, -1] = self.ub[r]
+                matrix[r,  r + self.ub.shape[0]] = 1.0              # for the slack variable
+            else:
+                # Lower bound (>=)
+                # We assume that all the equations have been undergone the relative transformation
+                matrix[r,  r -  self.lb.shape[0]] = 1.0             # for the variable
+                matrix[r, -1] = self.lb[r - self.lb.shape[0]]
+                matrix[r,  r * 2 ] = -1.0                           # for the replaced variable
+                matrix[r,  r * 2 + 1] = 1.0                         # for the replaced variable
         return matrix
 
     def split_matrix(self):
-        matrix = self.to_standard_form_slack()
+        """Split the matrix in 3 components: the arrays of constants and objective function
+        and the constraint + slack matrix"""
+        matrix = self.preprocess_matrix()
         A = matrix[:-1, :-1]
         b = matrix[:-1, -1]
         c = matrix[-1, :-1]
         return c, A, b
 
-    def split_matrix_qp(self):
-        # TODO
-        pass
-
-    def solve_simplex(self, verbose=False):
+    def solve_simplex_LP(self, verbose=False):
         """Tries to solve the portfolio problem of the maximum expected return
         by using a simplex solver.
         """
-        c, A, b = self.__split_matrix()
+        c, A, b = self.split_matrix()
         # print(c, A, b)
         slex = simplex.Simplex(c, A, b, verbose=verbose)
         slex.solve()
-        slex.print_solution()
-        slex.plot_objective_function()
+        if verbose: slex.print_solution()
         self.weights = slex.solutions
 
     ##################          OPTIMIZATION METHODS (INTERIOR POINT) - QP         ################
@@ -184,18 +190,16 @@ class Portfolio:
             A[-1, c] = 1.0
         return S, A, b
 
+    def split_matrix_qp(self):
+        # TODO
+        pass
+
     ##################          OUTPUT METHODS            ##########################################
 
     def print_stats(self):
         print('Portfolio data:')
         print(f' - assets: {self.tickers}')
-        print(f' - starting assets participations: {list(self.weights)}')
-        print(f' - assets participations (optimized): {list(self.weights)}')
-        # print(f' - portfolio variance: {self.compute_portfolio_variance():.4f}')
-        # print(f' - portfolio standard deviation (risk): {self.compute_portfolio_std():.4f}')
+        print(f' - assets participations: {list(self.weights)}')
+        print(f' - portfolio variance: {self.compute_portfolio_variance():.4f}')
+        print(f' - portfolio standard deviation (risk): {self.compute_portfolio_std():.4f}')
         print(f' - portfolio current expected return: {np.mean(self.compute_portfolio_return()):.4f}')
-        print(f' - portfolio current expected return: \n{self.compute_portfolio_return()}')
-
-        # print(f'Daily returns: \n{self.compute_returns()}')
-        # print(f'Daily portfolio expected returns: \n{self.compute_portfolio_daily_expected_return()}')
-        # print(f'Daily returns mean: \n{self.compute_returns_mean()}')

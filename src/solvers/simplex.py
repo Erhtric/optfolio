@@ -43,7 +43,7 @@ class Simplex:
         self.n_vars         = np.count_nonzero(self.c)
         self.n_eq           = self.A.shape[0]
         self.solutions      = np.zeros(self.n_vars)
-        self.slack          = np.zeros(self.b.shape[0])
+        self.slack          = np.zeros(self.A.shape[1] - self.n_vars)
 
         # To apply the Cunningham's rule (or round-robin rule)
         # We create a random cyclic ordering for choosing the variable that will enter the basis
@@ -58,9 +58,6 @@ class Simplex:
         self.verbose        = verbose
         self.max_iteration  = max_iteration
         self.max            = max
-
-        self.dual_t         = None
-        self.dual_y         = None
 
     def create_tableau(self):
         """
@@ -110,6 +107,9 @@ class Simplex:
         If a solution is non optimal, and given the pivoting column the index for the
         row will be the minimum value obtained as the result from dividing the corresponding
         constant by the target element indicized by the row pivoting index.
+
+        It has been slightly modified to take in account the mixed form of the constraints:
+        indeed, we aim to depart first those slack variables which coefficient is negative.
         """
         col_idx = self.__compute_pivot_col_position()
         target_col = self.tableau[:-1, col_idx]
@@ -122,12 +122,13 @@ class Simplex:
             # which are the negative ones (tagged as infinite)
             ratios.append(np.inf if val <= 0 else b / val)
 
+        if self.verbose: print(f'Min-ratios list: {ratios}')
+
         # If all the elements in the temporary memory are infinite, then it is impossible to improve
         # the tableau anymore and the program is then classified as unbounded
         if all([val == np.inf for val in ratios]):
             raise Exception("STOPPED EXECUTION: LINEAR PROGRAM UNBOUNDED")
 
-        if self.verbose: print(f'Min-ratios list: {ratios}')
         return np.argmin(ratios)
 
     def get_pivot_position(self) -> tuple:
@@ -164,8 +165,7 @@ class Simplex:
         """
         row, col = self.get_pivot_position()
         if self.verbose:
-            #print(f'Pivot position at iteration {self.iteration}: ({row}, {col})')
-            print(f'Variable x_{col} enter the basis, Slack variable s_{row} leave the basis, pivoting...')
+            print(f'Pivot position at iteration {self.iteration}: ({row}, {col})')
 
         self.__sub_pivoting_1(row, col)
         self.__sub_pivoting_2(row, col)
@@ -183,7 +183,7 @@ class Simplex:
                     self.solutions[col] = self.tableau[row_idx, -1]
                 else:
                     # THIS IS A SLACK VARIABLE
-                    self.slack[col - self.n_vars] = self.tableau[row_idx, -1]
+                    self.slack[col - self.n_eq] = self.tableau[row_idx, -1]
             else:
                 if col < self.n_vars:
                     # THIS IS A SOLUTION VARIABLE
@@ -233,13 +233,6 @@ class Simplex:
             print(f"Solution variables: \t{self.solutions}")
             print(f"Slack variables: \t{self.slack}")
             print(f'The maximal optimal value is: {self.objective[-1]}')
-
-            if self.verbose:
-                print()
-                print('The feasible dual program is:')
-                print(f"Solution dual variables: {self.dual_t}")
-                print(f"Slack dual variables: \t{self.dual_y}")
-                print(f'Complementary slackness conditions satisfied: {not bool(self.dual_t.T @ self.solutions and self.dual_y.T @ self.slack)}')
         else:
             print(f"Non-Optimal solution found in {self.iteration} iterations")
             print('The feasible primal program is:')
@@ -247,11 +240,11 @@ class Simplex:
             print(f"Slack variables: \t{self.slack}")
             print(f'The primal objective function has value: {self.objective[-1]}')
 
-    def plot_objective_function(self):
-        matplotlib.use('TkAgg')
-        # print(matplotlib.get_backend())
-        fig = plt.figure()
-        fig.suptitle('Objective Value History')
-        plt.plot(np.arange(self.iteration+1), self.objective)
-        plt.grid(True)
-        fig.savefig(f'./src/results/objective_history_simplex.pdf')
+    # def plot_objective_function(self):
+    #     matplotlib.use('TkAgg')
+    #     # print(matplotlib.get_backend())
+    #     fig = plt.figure()
+    #     fig.suptitle('Objective Value History')
+    #     plt.plot(np.arange(self.iteration+1), self.objective)
+    #     plt.grid(True)
+    #     fig.savefig(f'./src/results/objective_history_simplex.pdf')
