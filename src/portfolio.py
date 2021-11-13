@@ -95,17 +95,15 @@ class Portfolio:
     # In this part there are the methods to optimize the linear portfolio problem of the maximum expected return
     # Obviously it will not produce satisfactory results.
 
-    def preprocess_matrix(self):
+    def preprocess_matrix_lp(self):
         """Produces a matrix in the standard form. Below an example for 2 assets:
         [1 0 1 0  0 0  0 0 ub1]
         [0 1 0 1  0 0  0 0 ub2]
-        [1 0 0 0 -1 1  0 0 lb1]
-        [0 1 0 0  0 0 -1 1 lb2]
         [1 1 0 0  0 0  0 0   1]
         [mu mu 0  0 0  0 0 0 0]
-        where slack variables has been introduced and variables which are not sign-constrained are replaced by differences (x1 = x2 - x3).
+        where slack variables has been introduced.
         """
-        matrix = np.zeros((self.lb.shape[0] + self.ub.shape[0] + 2, self.n_assets + self.lb.shape[0] + 2 * self.ub.shape[0] + 1))\
+        matrix = np.zeros((self.ub.shape[0] + 2, self.n_assets + self.ub.shape[0] + 1))
 
         self.__set_bounds_coeff(matrix)
         self.__set_full_investment(matrix)
@@ -131,32 +129,23 @@ class Portfolio:
             matrix[-1, i] = individual_exp[i]
 
     def __set_bounds_coeff(self, matrix):
-        """Set the constants for the upper and lower bound. We already know that in a standard allocation problem
+        """Set the constants for the upper bound. We already know that in a standard allocation problem
         the bound equations are in the following form:
-            - w0 >= lb0, w1 >= lb1, ..., wn >= lbn -> wi + si = lb1
-            - w0 <= ub0, w1 <= ub1, ..., wn <= ubn -> wi - si = ubi -> -wi + si = -ubi
+            - w0 <= ub0, w1 <= ub1, ..., wn <= ubn -> wi + si = ubi
         """
-        for r in range(2 * self.lb.shape[0]):
-            if r < self.lb.shape[0]:
-                # The first lb rows are for the upper bound (<=)
-                # The constants are by definition all nonnegative!
-                # To convert into equation we need to add a SLACK variable
-                matrix[r,  r] = 1                                   # for the variable
-                matrix[r, -1] = self.ub[r]
-                matrix[r,  r + self.ub.shape[0]] = 1.0              # for the slack variable
-            else:
-                # Lower bound (>=)
-                # We assume that all the equations have been undergone the relative transformation
-                matrix[r,  r -  self.lb.shape[0]] = 1.0             # for the variable
-                matrix[r, -1] = self.lb[r - self.lb.shape[0]]
-                matrix[r,  r * 2 ] = -1.0                           # for the replaced variable
-                matrix[r,  r * 2 + 1] = 1.0                         # for the replaced variable
+        for r in range(self.ub.shape[0]):
+            # The first ub rows are for the upper bound (<=)
+            # The constants are by definition all nonnegative!
+            # To convert into equation we need to add a SLACK variable
+            matrix[r,  r] = 1                                   # for the variable
+            matrix[r, -1] = self.ub[r]
+            matrix[r,  r + self.ub.shape[0]] = 1.0              # for the slack variable
         return matrix
 
     def split_matrix_lp(self):
         """Split the matrix in 3 components: the arrays of constants and objective function
         and the constraint + slack matrix"""
-        matrix = self.preprocess_matrix()
+        matrix = self.preprocess_matrix_lp()
         A = matrix[:-1, :-1]
         b = matrix[:-1, -1]
         c = matrix[-1, :-1]
@@ -174,27 +163,34 @@ class Portfolio:
 
     ##################          OPTIMIZATION METHODS (INTERIOR POINT) - QP         ################
 
-    def split_matrix_qp(self):
+    def preprocess_matrix_qp(self):
         """Split the matrix in 3 components: the arrays of constants and objective function
-        and the constraint without slacks matrix"""
-        matrix = self.preprocess_matrix()
-        A = matrix[:-1, :self.n_assets]
-        b = matrix[:-1, -1]
+        and the constraint matrix"""
+        A = np.zeros((self.ub.shape[0] + 1, self.n_assets))
+        for r in range(self.n_assets):
+            A[r, r] = -1
+        A[-1] = np.ones(self.n_assets)
         c = np.zeros(self.n_assets)
+        b = np.append(-self.ub, 1)
         return c, A, b
 
     def solve_intpoint_QP(self, verbose=False):
-        """Tries to solve the portfolio problem of the maximum expected return
-        by using a simplex solver.
+        """Tries to solve the portfolio problem of the mean-variance portfolio by using an interior-point
+        method. In addition, we pass as parameter the target expected return to be passed. If None no value
+        will be added to the returned matrix.
         """
-        c, A, b = self.split_matrix_qp()
+        c, A, b = self.preprocess_matrix_qp()
         S = self.compute_returns_covariance_matrix()
-        init_weigths = []
-        intpoint = interior_point.IntPoint(S, c, A, b, verbose=verbose, x_init=init_weigths)
+
+        init_weigths = np.full((self.n_assets,), 0.1)             # it must satisfy the constraint matrix
+        intpoint = interior_point.IntPoint(S, c, A, b
+                                        , verbose=verbose
+                                        , x_init=init_weigths
+                                        , y_init=0.03*np.ones(A.shape[0])
+                                        , lm_init=0.05*np.ones(A.shape[0]))
         intpoint.solve()
         if verbose: intpoint.print_solution()
         self.weights = intpoint.hsol[-1]
-        print(intpoint.fobj)
 
     ##################          OUTPUT METHODS            ##########################################
 

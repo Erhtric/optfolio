@@ -2,7 +2,7 @@ import numpy as np
 from solvers.simplex import Simplex
 from solvers.interior_point import IntPoint
 from portfolio import Portfolio
-#np.set_printoptions( threshold=20, edgeitems=10, linewidth=140, formatter = dict( float = lambda x: "%.4g" % x ))  # float arrays %.3g
+np.set_printoptions( threshold=20, edgeitems=10, linewidth=140, formatter = dict( float = lambda x: "%.4g" % x ))  # float arrays %.3g
 
 if __name__ == "__main__":
 
@@ -36,7 +36,7 @@ if __name__ == "__main__":
                     , '2020-01-01', '2021-01-01')
 
     # TEST FOR THE MAXIMUM EXPECTED RETURN PORTFOLIO - linear programming
-    pf.solve_simplex_LP(False)
+    pf.solve_simplex_LP(verbose=False)
     pf.print_stats()
 
     print('\n\n')
@@ -60,18 +60,18 @@ if __name__ == "__main__":
                     , x_init=np.ones(A.shape[1])
                     , y_init=1 * np.ones(A.shape[0])
                     , lm_init=2 * np.ones(A.shape[0])
-                    , verbose=True)
+                    , verbose=False)
     intp.solve()
     intp.print_solution()
 
     print('\n\n')
 
-    # tickers2 = ['TSLA', 'GME']
-    # pf2 = Portfolio(tickers2
-    #                 , np.zeros(len(tickers2))
-    #                 , np.array([1.0, 1.0])
-    #                 , '2020-01-01', '2021-01-01')
+    tickers2 = ['TSLA', 'GME']
+    pf2 = Portfolio(tickers2
+                    , np.zeros(len(tickers2))
+                    , np.array([1.0, 1.0])
+                    , '2020-01-01', '2021-01-01')
 
     # # TEST FOR THE MEAN VARIANCE PORTFOLIO - quadratic programming
-    # pf2.solve_intpoint_QP(True)
-    # pf2.print_stats()
+    pf2.solve_intpoint_QP(verbose=True)
+    pf2.print_stats()

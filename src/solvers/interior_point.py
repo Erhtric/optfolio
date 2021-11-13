@@ -184,7 +184,7 @@ class IntPoint:
             y_k += step * dy
             lm_k += step * dlm
 
-            print(f'Current point: {x_k}')
+            if self.verbose: print(f'Current point: {x_k}')
 
             self.hsol.append(x_k)
             self.hslack.append(y_k)
