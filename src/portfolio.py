@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import os
 from solvers import simplex
+from solvers import interior_point
 from typing import List
 
 class Portfolio:
@@ -152,7 +153,7 @@ class Portfolio:
                 matrix[r,  r * 2 + 1] = 1.0                         # for the replaced variable
         return matrix
 
-    def split_matrix(self):
+    def split_matrix_lp(self):
         """Split the matrix in 3 components: the arrays of constants and objective function
         and the constraint + slack matrix"""
         matrix = self.preprocess_matrix()
@@ -165,8 +166,7 @@ class Portfolio:
         """Tries to solve the portfolio problem of the maximum expected return
         by using a simplex solver.
         """
-        c, A, b = self.split_matrix()
-        # print(c, A, b)
+        c, A, b = self.split_matrix_lp()
         slex = simplex.Simplex(c, A, b, verbose=verbose)
         slex.solve()
         if verbose: slex.print_solution()
@@ -174,25 +174,27 @@ class Portfolio:
 
     ##################          OPTIMIZATION METHODS (INTERIOR POINT) - QP         ################
 
-    def set_matrix_qp(self):
-        """It prepare the three matrices for the interior point algorithm, what differs from before is that
-        now we do not have any slack variables."""
-        b = np.concatenate((self.lb, self.ub))
-        b = np.append(b, 1.0)
-        S = self.compute_returns_covariance_matrix().to_numpy()
-
-        A = np.zeros((self.lb.shape[0] + self.ub.shape[0] + 1, len(self.tickers)))
-        for r in range(self.lb.shape[0]):
-            A[r, r] = 1.0
-            A[r + self.ub.shape[0], r] = 1.0
-
-        for c in range(len(self.tickers)):
-            A[-1, c] = 1.0
-        return S, A, b
-
     def split_matrix_qp(self):
-        # TODO
-        pass
+        """Split the matrix in 3 components: the arrays of constants and objective function
+        and the constraint without slacks matrix"""
+        matrix = self.preprocess_matrix()
+        A = matrix[:-1, :self.n_assets]
+        b = matrix[:-1, -1]
+        c = np.zeros(self.n_assets)
+        return c, A, b
+
+    def solve_intpoint_QP(self, verbose=False):
+        """Tries to solve the portfolio problem of the maximum expected return
+        by using a simplex solver.
+        """
+        c, A, b = self.split_matrix_qp()
+        S = self.compute_returns_covariance_matrix()
+        init_weigths = []
+        intpoint = interior_point.IntPoint(S, c, A, b, verbose=verbose, x_init=init_weigths)
+        intpoint.solve()
+        if verbose: intpoint.print_solution()
+        self.weights = intpoint.hsol[-1]
+        print(intpoint.fobj)
 
     ##################          OUTPUT METHODS            ##########################################
 

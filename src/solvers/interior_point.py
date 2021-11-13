@@ -10,13 +10,15 @@ class IntPoint:
 
     def __init__(self
                 , S: np.array
+                , c: np.array
                 , A: np.array
                 , b: np.array
-                , c: np.array
+                , x_init: np.array
+                , y_init: np.array
+                , lm_init: np.array
                 , const=0.0
                 , max_iteration=2000
                 , epsilon=1.0e-5
-                , max=True
                 , verbose=False) -> None:
         """
         Initializes an Interior Point session in the standard form for solving a quadratic program
@@ -39,20 +41,20 @@ class IntPoint:
         self.iteration      = 0
         self.verbose        = verbose
         self.max_iteration  = max_iteration
-        self.epsilon        = epsilon          # for the tolerance
+        self.epsilon        = epsilon           # for the tolerance
 
         # History of values
-        self.fobj           = []
         self.hsol           = []
         self.hslack         = []
         self.hlambdas       = []
         self.steps          = [0]
+        self.fobj           = self.compute_fobj_history()
 
         # Initialization variables: user-defined starting point
-        self.x_0  = np.ones(self.n_vars)
+        self.x_0  = x_init
         # Slack and Lambdas must be positive
-        self.y_0  = 1 * np.ones(self.n_eq)        # slack
-        self.lm_0 = 2 * np.ones(self.n_eq)        # langrangian multiplier
+        self.y_0  = y_init                      # slack
+        self.lm_0 = lm_init                     # langrangian multiplier
 
     def compute_mu(self, y_k, lm_k) -> np.float64:
         return (y_k.T @ lm_k) / self.n_eq
@@ -137,8 +139,12 @@ class IntPoint:
         Gamma_aff = np.zeros((self.n_eq, self.n_eq))
         Lambda_aff = np.zeros((self.n_eq, self.n_eq))
 
+
         # The first step computes an affine scaling step by setting sigma to zero
         _, dy_aff, dlm_aff = self.corrector_step(self.x_0, self.y_0, self.lm_0, Gamma_aff, Lambda_aff, sigma=0)
+
+        if self.verbose:
+            print(f'Initial point: {self.x_0}')
 
         # Apply the step to the starting point
         x_k = self.x_0
@@ -168,17 +174,22 @@ class IntPoint:
 
             step = self.compute_primal_dual_step_size(y_k, lm_k, dy, dlm)
 
+            if self.verbose:
+                print(f'Gradient: \ndx: {dx}, dy: {dy}, dlm: {dlm}')
+                print(f'Learning Step: {step:.4f}')
+
             # Update step
             self.iteration += 1
             x_k += step * dx
             y_k += step * dy
             lm_k += step * dlm
 
+            print(f'Current point: {x_k}')
+
             self.hsol.append(x_k)
             self.hslack.append(y_k)
             self.hlambdas.append(lm_k)
             self.steps.append(step)
-
 
             var = np.concatenate([dx, dy, dlm])
             # if np.linalg.norm(var) < self.epsilon:
@@ -194,6 +205,12 @@ class IntPoint:
         """
         return x @ self.S @ x + self.c.T @ x + self.const
 
+    def compute_fobj_history(self):
+        fobjs = []
+        for val in self.hsol:
+            fobjs.append(self.objective_function(val))
+        return fobjs
+
     def print_solution(self) -> None:
         print(f'Minimum found in {self.iteration} iterations at point: \n{self.hsol[-1]}')
-        print(f'Objective function value: {self.objective_function(self.hsol[-1])}')
+        print(f'Objective function value: {self.objective_function(self.hsol[-1]):.4f}')
