@@ -2,6 +2,7 @@
 THIS FILE CONTAINS THE METHODS FOR THE INTERIOR POINT ALGORITHM EXECUTION for the PORTFOLIO OPTIMIZATION.
 """
 import numpy as np
+from matplotlib import pyplot as plt
 
 class IntPoint:
     """This class contains an implementation of a modified version of the Mehrotra predictor-corrector method for linear programming.
@@ -17,7 +18,7 @@ class IntPoint:
                 , y_init: np.array
                 , lm_init: np.array
                 , const=0.0
-                , max_iteration=2000
+                , max_iteration=100
                 , epsilon=1.0e-5
                 , verbose=False) -> None:
         """
@@ -111,7 +112,7 @@ class IntPoint:
         arr_k = np.concatenate([y_k, lm_k])
         arr_aff = np.concatenate([dy_aff, dlm_aff])
         while any((arr_k + step * arr_aff) < np.zeros(2*self.n_eq)) and step > 0:
-            step -= 0.05
+            step -= 0.01
 
         return step
 
@@ -121,14 +122,15 @@ class IntPoint:
         """
         # To accelerate convergence tau will approach 1
         tau = 1 - 0.5**(self.iteration + 1)
+        decrement = 0.01
 
         step_primal = 1.0
         while any(y_k + step_primal * dy < (1 - tau) * y_k) and step_primal > 0:
-            step_primal -= 0.05
+            step_primal -= decrement
 
         step_dual = 1.0
         while any(lm_k + step_dual * dlm < (1 - tau) * lm_k) and step_dual > 0:
-            step_dual -= 0.05
+            step_dual -= decrement
         return np.min([step_primal, step_dual])
 
     def solve(self) -> None:
@@ -139,16 +141,16 @@ class IntPoint:
         Gamma_aff = np.zeros((self.n_eq, self.n_eq))
         Lambda_aff = np.zeros((self.n_eq, self.n_eq))
 
-
         # The first step computes an affine scaling step by setting sigma to zero
         _, dy_aff, dlm_aff = self.corrector_step(self.x_0, self.y_0, self.lm_0, Gamma_aff, Lambda_aff, sigma=0)
 
         if self.verbose:
-            print(f'Initial point: {self.x_0}')
+            print(f'Initial point: ({self.x_0}, {self.y_0}, {self.lm_0})')
+            print(f'First affine step: \ndy_aff = {dy_aff}, dlm_aff = {dlm_aff}')
 
         # Apply the step to the starting point
         x_k = self.x_0
-        y_k = np.maximum(1, np.absolute(dy_aff + self.y_0))            # max and absolute values must be applied component-wise
+        y_k = np.maximum(1, np.absolute(dy_aff + self.y_0))
         lm_k = np.maximum(1, np.absolute(dlm_aff + self.lm_0))
 
         self.hsol.append(x_k)
@@ -156,6 +158,7 @@ class IntPoint:
         self.hlambdas.append(lm_k)
 
         while self.iteration < self.max_iteration:
+            if self.verbose: print(f'\nIteration {self.iteration+1}')
 
             # Perform an affine step
             _, dy_aff, dlm_aff = self.corrector_step(x_k, y_k, lm_k, Gamma_aff, Lambda_aff, sigma=0)
@@ -175,7 +178,7 @@ class IntPoint:
             step = self.compute_primal_dual_step_size(y_k, lm_k, dy, dlm)
 
             if self.verbose:
-                print(f'Gradient: \ndx: {dx}, dy: {dy}, dlm: {dlm}')
+                print(f'Deltas: \ndx = {dx}, dy = {dy}, dlm = {dlm}')
                 print(f'Learning Step: {step:.4f}')
 
             # Update step
@@ -198,6 +201,7 @@ class IntPoint:
             if any(abs(var) < self.epsilon * np.ones(self.n_vars + 2*self.n_eq)):
                if self.verbose: print(f'PRECISION REACHED, array: \n{var}')
                break
+
 
     def objective_function(self, x) -> np.float64:
         """The objective function of the minimization problem is:

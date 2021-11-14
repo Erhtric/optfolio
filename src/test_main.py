@@ -2,7 +2,7 @@ import numpy as np
 from solvers.simplex import Simplex
 from solvers.interior_point import IntPoint
 from portfolio import Portfolio
-np.set_printoptions( threshold=20, edgeitems=10, linewidth=140, formatter = dict( float = lambda x: "%.4g" % x ))  # float arrays %.3g
+#np.set_printoptions( threshold=20, edgeitems=10, linewidth=140, formatter = dict( float = lambda x: "%.4g" % x ))  # float arrays %.3g
 
 if __name__ == "__main__":
 
@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
     print('\n\n')
 
-    # min z = x.T @ S @ x + c.T @ x + const
+    #min z = x.T @ S @ x + c.T @ x + const
     S = np.array([
         [ 1, -1],
         [-1,  2]
@@ -58,20 +58,20 @@ if __name__ == "__main__":
 
     intp = IntPoint(S, c, A, b
                     , x_init=np.ones(A.shape[1])
-                    , y_init=1 * np.ones(A.shape[0])
-                    , lm_init=2 * np.ones(A.shape[0])
+                    , y_init=np.full((A.shape[0],), 1.0)
+                    , lm_init=np.full((A.shape[0],), 2.0)
                     , verbose=False)
     intp.solve()
     intp.print_solution()
 
     print('\n\n')
 
-    tickers2 = ['TSLA', 'GME']
+    tickers2 = ['TSLA', 'AAPL']
     pf2 = Portfolio(tickers2
                     , np.zeros(len(tickers2))
-                    , np.array([1.0, 1.0])
+                    , np.array([0.8, 1.0])
                     , '2020-01-01', '2021-01-01')
 
     # # TEST FOR THE MEAN VARIANCE PORTFOLIO - quadratic programming
-    pf2.solve_intpoint_QP(verbose=True)
+    pf2.solve_intpoint_QP(verbose=False)
     pf2.print_stats()
