@@ -181,16 +181,9 @@ class Portfolio:
         c, A, b = self.preprocess_matrix_qp()
         S = self.compute_returns_covariance_matrix()
 
-        # init_point = (np.random.uniform(0.0, 1.0, [self.n_assets,])
-        #             , np.random.uniform(0.1, 100.0, [A.shape[0],])
-        #             , np.random.uniform(0.1, 100.0, [A.shape[0],]))
-
-        # If none of the points generated above try this one that I know that works
-        # this specific algorithm is very sensible to the initial point given,
-        # even though it has an heuristic applied.
-        init_point = (np.array([0.2451, 0.7284])
-                    , np.array([255.0, 248.5, 68.36])
-                    , np.array([369.2, 379.6, 542.4]))
+        init_point = (np.random.uniform(0.0, 1.0, [self.n_assets,])
+                    , np.random.uniform(0.1, 100.0, [A.shape[0],])
+                    , np.random.uniform(0.1, 100.0, [A.shape[0],]))
 
         intpoint = interior_point.IntPoint(S, c, A, b
                                         , verbose=verbose

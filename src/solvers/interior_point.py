@@ -165,7 +165,7 @@ class IntPoint:
             mu = self.compute_mu(y_k, lm_k)
 
             step_aff = self.compute_affine_step_size(y_k, lm_k, dy_aff, dlm_aff)
-            mu_aff = ((y_k * step_aff * dy_aff).T @ (lm_k * step_aff * dlm_aff)) / self.n_eq
+            mu_aff = ((y_k + step_aff * dy_aff).T @ (lm_k + step_aff * dlm_aff)) / self.n_eq
 
             # Set the centering parameter
             sigma = (mu_aff / mu)**3
@@ -201,7 +201,6 @@ class IntPoint:
             if any(abs(var) < self.epsilon * np.ones(self.n_vars + 2*self.n_eq)):
                if self.verbose: print(f'PRECISION REACHED, array: \n{var}')
                break
-
 
     def objective_function(self, x) -> np.float64:
         """The objective function of the minimization problem is:
